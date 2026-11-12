@@ -1,0 +1,42 @@
+{
+  "id": "./",
+  "name": "AutoCut — Private Video Editor",
+  "short_name": "AutoCut",
+  "description": "Turn plain-word instructions into real edits. Free, private, on-device video editing.",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#101512",
+  "theme_color": "#111714",
+  "categories": ["photo", "video", "productivity"],
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Edit a video",
+      "short_name": "New edit",
+      "url": "./#editor",
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

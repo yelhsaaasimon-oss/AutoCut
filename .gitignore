@@ -1,0 +1,7 @@
+node_modules/
+.arena/
+test-results/
+playwright-report/
+tests/fixtures/
+*.log
+.DS_Store
