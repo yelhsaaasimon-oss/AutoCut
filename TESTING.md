@@ -2,6 +2,10 @@
 
 Tested on **2026-11-12**. This is a working static-browser application, not a simulated processing flow.
 
+## Stage 1 acceptance audit
+
+See [QA-STAGE1.md](./QA-STAGE1.md) for an explicit PASS / FAIL / NOT TESTED report covering all 14 requested checks, negative cases, fixes to the QA launcher, and remaining real-device/deployment limitations. The additional `npm run test:stage1` suite passes **17 acceptance groups**, including actual upload chooser events, native video playback, independent trim/grayscale/mute exports, byte-verified downloads, five touch viewport widths, corrupt-file recovery, and missing-offline-engine recovery.
+
 ## Automated results
 
 - `npm test`: **25 passing tests** for all requested example instructions, composed commands, decimal timings, unknown clauses, conflicting instructions, supported speed and volume bounds, trim validation, correct input-duration handling for slow motion, mute, audio-only restrictions, chained tempo filters, bounded fades, blank-input conversion, required files, and manifest/icon dimensions.
@@ -41,7 +45,7 @@ These are **not required to deploy or use AutoCut from a phone**:
 1. `npm install` (Node 22+; development dependencies only).
 2. `npm test`.
 3. `npm run serve` (development-only static server, port 5173, binds 0.0.0.0; no backend processing).
-4. In another terminal, `npm run test:browser`.
+4. In another terminal, `npm run test:browser` and `npm run test:stage1`.
 
 The automated browser test uses the Linux x64 Chromium binary from npm and its bundled NSS libraries so it does not require a blocked external Playwright browser download in a minimal sandbox. Standard compatible Linux system libraries are still needed. `TEST_URL` can point to a different test host; the default deliberately includes `/AutoCut/`. Generated media, browser libraries, and screenshots are ignored under `tests/fixtures/` and `.arena/`. They are not application assets or repository deliverables.
 

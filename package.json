@@ -7,7 +7,8 @@
   "scripts": {
     "test": "node --test tests/editor.test.js",
     "test:browser": "node tests/browser.test.js",
-    "serve": "node scripts/serve.js"
+    "serve": "node scripts/serve.js",
+    "test:stage1": "node tests/stage1.test.js"
   },
   "devDependencies": {
     "@playwright/test": "1.65.0",

@@ -1,44 +1,9 @@
 // Optional maintainer test. Start `npm run serve` first; no backend is used by the app.
-import { chromium as playwright } from "@playwright/test";
-import chromium from "@sparticuz/chromium";
 import assert from "node:assert/strict";
-import { mkdir, writeFile, readFile } from "node:fs/promises";
-import { brotliDecompressSync } from "node:zlib";
-import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
-// Minimal Linux sandboxes may lack NSS. Use the test browser's own bundled libraries.
-const libraryDir = resolve(".arena/browser-libs");
-await mkdir(libraryDir, { recursive: true });
-const archive = resolve(".arena/browser-libs.tar");
-await writeFile(
-  archive,
-  brotliDecompressSync(
-    await readFile(
-      new URL(
-        "../node_modules/@sparticuz/chromium/bin/al2023.tar.br",
-        import.meta.url,
-      ),
-    ),
-  ),
-);
-execFileSync("tar", ["-xf", archive, "-C", libraryDir]);
-const browserEnv = {
-  ...process.env,
-  LD_LIBRARY_PATH: `${libraryDir}/lib:${process.env.LD_LIBRARY_PATH || ""}`,
-};
+import { mkdir, writeFile } from "node:fs/promises";
+import { launchBrowser } from "./browser-setup.js";
 const base = process.env.TEST_URL || "http://localhost:5173/AutoCut/";
-// Keep web security and SharedArrayBuffer restrictions enabled, as on GitHub Pages.
-const safeArgs = chromium.args.filter(
-  (arg) =>
-    !arg.includes("disable-web-security") &&
-    !arg.includes("enable-features=SharedArrayBuffer"),
-);
-const browser = await playwright.launch({
-  executablePath: await chromium.executablePath(),
-  args: safeArgs,
-  env: browserEnv,
-  headless: true,
-});
+const browser = await launchBrowser();
 const context = await browser.newContext({
   viewport: { width: 1440, height: 1050 },
   acceptDownloads: true,
@@ -173,6 +138,7 @@ try {
       document.querySelector("#download-button").hasAttribute("href") ||
       (!document.querySelector("#process-button").disabled &&
         !document.querySelector("#instruction-errors").hidden),
+    null,
     { timeout: 120000 },
   );
   assert.equal(
@@ -297,6 +263,7 @@ try {
   );
   await page.waitForFunction(
     () => !document.querySelector("#instruction-errors").hidden,
+    null,
     { timeout: 120000 },
   );
   assert.match(
@@ -313,6 +280,7 @@ try {
   await page.locator("#process-button").click();
   await page.waitForFunction(
     () => document.querySelector("#download-button").hasAttribute("href"),
+    null,
     { timeout: 120000 },
   );
   meta = await probeOutput();
@@ -330,6 +298,7 @@ try {
   await page.locator("#process-button").click();
   await page.waitForFunction(
     () => document.querySelector("#download-button").hasAttribute("href"),
+    null,
     { timeout: 120000 },
   );
   meta = await probeOutput();
@@ -363,6 +332,7 @@ try {
   await page.locator("#process-button").click();
   await page.waitForFunction(
     () => document.querySelector("#download-button").hasAttribute("href"),
+    null,
     { timeout: 120000 },
   );
   meta = await probeOutput();
