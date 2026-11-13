@@ -441,8 +441,9 @@
                 </p>
               </div>
               <p class="story-small">
-                Images start at 3 seconds. Source files are never changed.
-                Imported assets can be reused.
+                Import already adds one scene. Add another scene creates a
+                separate full-length copy. Images start at 3 seconds; source
+                files are never changed.
               </p>
             </section>
             <section
@@ -554,6 +555,11 @@
                 <p id="story-selection" class="story-selection">
                   Select a scene to adjust its timing.
                 </p>
+                <p
+                  id="story-applied-timing"
+                  class="story-small"
+                  role="status"
+                ></p>
                 <form id="story-timing" hidden novalidate>
                   <div id="story-video-fields" class="story-fields">
                     <label
@@ -613,6 +619,11 @@
                   stay silent. No captions, image animation or transitions in
                   this increment.
                 </p>
+                <p
+                  id="story-export-summary"
+                  class="story-small"
+                  role="status"
+                ></p>
                 <button id="story-export" class="primary-button" disabled>
                   <svg><use href="#i-spark" /></svg>Export story
                 </button>

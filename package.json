@@ -10,7 +10,8 @@
     "serve": "node scripts/serve.js",
     "test:stage1": "node tests/stage1.test.js",
     "test:story": "node tests/story.test.js",
-    "test:story-preview": "node tests/story-preview.test.js"
+    "test:story-preview": "node tests/story-preview.test.js",
+    "test:story-trim": "node tests/story-trim.test.js"
   },
   "devDependencies": {
     "@playwright/test": "1.65.0",

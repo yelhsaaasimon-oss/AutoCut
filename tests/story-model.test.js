@@ -16,7 +16,11 @@ import {
   sceneStart,
   durationFrames,
 } from "../story-model.js";
-import { sceneCommand, joinCommand } from "../story-export.js";
+import {
+  sceneCommand,
+  joinCommand,
+  verifyStoryOutput,
+} from "../story-export.js";
 const video = (duration = 4, name = "clip.mp4") => ({
   kind: "video",
   name,
@@ -186,4 +190,80 @@ test("Silent scene has synthetic silence; image loops; final join encodes AAC on
   assert.ok(args.includes("copy"));
   assert.ok(args.includes("aac"));
   assert.throws(() => joinCommand(0, 0));
+});
+
+test("2–7s trim stores source frames 48–168 and exports only 120 frames / 240000 audio samples", () => {
+  const p = createProject(),
+    scene = importAsset(p, video(10));
+  updateScene(p, scene.id, 2, 7);
+  assert.equal(scene.inFrame, 48);
+  assert.equal(scene.outFrame, 168);
+  assert.equal(durationFrames(scene), 120);
+  assert.equal(totalFrames(p), 120);
+  assert.equal(p.assets[0].duration, 10);
+  assert.equal(p.assets[0].frames, 240);
+  for (const [time, sourceTime] of [
+    [0, 2],
+    [2.5, 4.5],
+    [4.999, 6.999],
+  ]) {
+    const location = locateTime(p, time);
+    assert.ok(
+      Math.abs(location.scene.inFrame / FPS + location.local - sourceTime) <
+        0.0001,
+    );
+  }
+  assert.equal(locateTime(p, 5).atEnd, true);
+  for (const hasAudio of [false, true]) {
+    const command = sceneCommand(scene, p.assets[0], hasAudio, 0);
+    assert.equal(command.args[command.args.indexOf("-ss") + 1], "2");
+    assert.equal(command.args[command.args.indexOf("-t") + 1], "5");
+    assert.equal(command.frames, 120);
+    assert.equal(command.samples, 240000);
+    assert.match(command.args.join(" "), /atrim=end_sample=240000/);
+  }
+  const join = joinCommand(1, totalFrames(p));
+  assert.equal(join[join.indexOf("-t") + 1], "5");
+  const copy = addScene(p, scene.assetId);
+  assert.equal(durationFrames(copy), 240);
+  assert.equal(scene.inFrame, 48);
+  assert.equal(totalFrames(p), 360); // full-source duplicate + five-second cut.
+});
+
+test("Actual export verification rejects original duration or wrong frame count", () => {
+  const meta = {
+    format: { duration: "5.000000" },
+    streams: [
+      { codec_type: "video", nb_frames: "120", duration: "5.000000" },
+      { codec_type: "audio", duration: "5.000000" },
+    ],
+  };
+  assert.doesNotThrow(() => verifyStoryOutput(meta, 120));
+  for (const change of [
+    (m) => {
+      m.format.duration = "10";
+    },
+    (m) => {
+      m.streams[0].duration = "10";
+    },
+    (m) => {
+      m.streams[0].nb_frames = "240";
+    },
+    (m) => {
+      m.streams[0].nb_frames = "119";
+    },
+    (m) => {
+      m.streams.pop();
+    },
+    (m) => {
+      m.format.duration = "N/A";
+    },
+  ]) {
+    const invalid = structuredClone(meta);
+    change(invalid);
+    assert.throws(
+      () => verifyStoryOutput(invalid, 120),
+      /timing verification failed/,
+    );
+  }
 });

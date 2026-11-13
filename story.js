@@ -134,10 +134,13 @@ function renderAssets() {
       ),
     );
     const actions = el("div", "story-asset-actions");
-    actions.append(
-      button("Add scene", () => mutate(() => addScene(project, asset.id))),
-    );
     const used = project.scenes.some((scene) => scene.assetId === asset.id);
+    const add = button(used ? "Add another scene" : "Add scene", () =>
+      mutate(() => addScene(project, asset.id)),
+    );
+    add.title =
+      "Import already adds one scene. This adds a separate copy with full source timing.";
+    actions.append(add);
     const remove = button(
       "Remove asset",
       () => {
@@ -270,6 +273,9 @@ function renderTimeline() {
 function renderInspector() {
   const scene = project.scenes.find((item) => item.id === project.selectedId);
   $("story-timing").hidden = !scene;
+  $("story-applied-timing").textContent = scene
+    ? `Applied to this scene: ${seconds(durationFrames(scene))}s${assetFor(project, scene).kind === "video" ? ` · source ${seconds(scene.inFrame)}–${seconds(scene.outFrame)}s` : ""}. Preview and export use these applied values.`
+    : "";
   if (!scene) {
     $("story-selection").textContent = "Select a scene to adjust its timing.";
     return;
@@ -298,6 +304,8 @@ function render() {
   $("story-play").disabled = busy() || !project.scenes.length;
   $("story-scrub").disabled = busy() || !project.scenes.length;
   $("story-export").disabled = busy() || !project.scenes.length;
+  $("story-export-summary").textContent =
+    `Exports all ${project.scenes.length} scene${project.scenes.length === 1 ? "" : "s"} · ${seconds(totalFrames(project))}s total, not just the selected scene.`;
   for (const node of $("story-timing").querySelectorAll("input,button"))
     node.disabled = busy();
 }
@@ -518,6 +526,18 @@ function tick(now) {
     scroll.scrollLeft = Math.max(0, x - scroll.clientWidth / 2);
   state.raf = requestAnimationFrame(tick);
 }
+// Native media continues advancing when Android delays animation callbacks.
+// Enforce scene out-points on media events too, keeping only one RAF scheduled.
+video.addEventListener("timeupdate", () => {
+  if (!state.playing || video.hidden) return;
+  cancelAnimationFrame(state.raf);
+  tick(performance.now());
+});
+video.addEventListener("ended", () => {
+  if (!state.playing || video.hidden) return;
+  cancelAnimationFrame(state.raf);
+  tick(performance.now());
+});
 $("story-play").addEventListener("click", () => {
   if (state.playing) pausePreview();
   else {

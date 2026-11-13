@@ -11,9 +11,9 @@ Increment A extends the existing app; **Quick edit** still provides every Stage 
 ### Make a story on your phone
 
 1. Tap **Story project → Import videos & images**. Choose several short local videos and/or JPG/PNG images. If your Android file picker only allows one item at a time, import repeatedly.
-2. Each accepted asset appears in the source library and adds a scene. Images initially last three seconds. Use **Add scene** to reuse an asset.
+2. Each accepted asset appears in the source library and **automatically adds one scene**. Images initially last three seconds. **Add another scene** creates a separate full-length copy for intentional reuse; it is not needed after import.
 3. Tap a scene in the list or timeline. Use **Earlier / Later** to reorder it and **Remove** to remove it. Assets stay available until you explicitly remove them; remove their scenes before removing an asset.
-4. For a video, enter **Start in source** and **End in source**. For an image, enter its duration. Tap **Apply scene timing**. Values are rounded to 24fps; a scene must be at least 0.25s and an image can last at most 30s.
+4. For a video, enter **Start in source** and **End in source**. For an image, enter its duration. Tap **Apply scene timing**. Check the **Applied to this scene** summary; export includes **all scenes**, not only the selected scene. For a single 2–7s cut, the timeline and export summary must both show one scene / five seconds. Values are rounded to 24fps; a scene must be at least 0.25s and an image can last at most 30s.
 5. Swipe the horizontal timeline, use the playhead slider to seek, or tap **Play** to preview the sequence. The inspector continues to show the selected scene; source playback can briefly buffer at cuts. Source thumbnails do not regenerate after every trim.
 6. Tap **Export story**, keep Chrome in the foreground and your phone unlocked. The engine downloads on first use; later cached use can work offline. **Cancel** preserves your scenes and original files.
 7. Play the final MP4 preview, then tap **Download story MP4**. Find `autocut-story.mp4` in Chrome → ⋮ → Downloads. Save it before leaving or refreshing.

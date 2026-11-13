@@ -532,13 +532,13 @@ try {
   const jpgAsset = page
     .locator("#story-assets .story-asset")
     .filter({ hasText: "story-image.jpg" });
-  await jpgAsset.getByRole("button", { name: "Add scene", exact: true }).tap();
+  await jpgAsset.getByRole("button", { name: /^Add (another )?scene$/ }).tap();
   await select(3);
   await applyImage(1);
   const mapAsset = page
     .locator("#story-assets .story-asset")
     .filter({ hasText: "story-map.png" });
-  await mapAsset.getByRole("button", { name: "Add scene", exact: true }).tap();
+  await mapAsset.getByRole("button", { name: /^Add (another )?scene$/ }).tap();
   await select(4);
   await applyImage(1);
   await page.getByRole("button", { name: "Remove scene 5", exact: true }).tap();
@@ -602,10 +602,10 @@ try {
   assert.equal(await page.locator("#story-assets .story-asset").count(), 4);
   for (let i = 0; i < 8; i++)
     await mapAsset
-      .getByRole("button", { name: "Add scene", exact: true })
+      .getByRole("button", { name: /^Add (another )?scene$/ })
       .tap();
   assert.equal(await page.locator("#story-scenes .story-scene").count(), 12);
-  await mapAsset.getByRole("button", { name: "Add scene", exact: true }).tap();
+  await mapAsset.getByRole("button", { name: /^Add (another )?scene$/ }).tap();
   assert.match(
     await page.locator("#story-message").textContent(),
     /at most 12/,

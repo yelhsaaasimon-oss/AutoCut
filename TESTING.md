@@ -2,13 +2,17 @@
 
 Tested on **2026-11-12**. This is a working static-browser application, not a simulated processing flow.
 
+## Story 2–7 second trim pipeline follow-up
+
+See [QA-STORY-TRIM.md](./QA-STORY-TRIM.md) for baseline findings, scoped fixes and exact evidence. `npm run test:story-trim` passes nine real-browser checks: a ten-second source trimmed 2–7 previews for five seconds and exports a 5.000000s / 120-frame MP4 with independently decoded green→blue frames and the expected audio. The suite also covers delayed animation callbacks, import-plus-add duplication, removing the original scene, download integrity and final-file verification. Exact single-scene export already passed on the baseline; the user's physical-phone failure is not claimed reproduced. The new phone retest remains pending. All existing suites pass and Stage 1 processing is unchanged.
+
 ## Story trim-preview follow-up
 
 The user reported an Android trim-preview hang after the original acceptance run. See [QA-STORY-PREVIEW.md](./QA-STORY-PREVIEW.md) for the investigation, confirmed lifecycle defects, baseline regression failures, scoped changes and rerun results. `npm run test:story-preview` adds actual decoded-frame checks, rapid trim/selection races, and controlled pending-play/stalled-seek timeout and recovery checks. These pass, as do the existing suites. **The exact physical-phone trim-only hang has not been reproduced or retested here; device-specific resolution remains unverified.** No merge or deployment was performed.
 
 ## Stage 2 — Increment A
 
-See [QA-INCREMENT-A.md](./QA-INCREMENT-A.md) for the full feature-by-feature PASS / FAIL / NOT TESTED report. `npm test` now runs **40 tests**: all 25 original tests plus 15 Story model/export-command tests. `npm run test:story` passes **15 real-browser acceptance groups**, including mixed video/JPG/PNG import, scene edits, sequential native preview, decoded MP4 scene colors, sampled audio placement, downloads, touch viewports, cancellation/retry, empty-state recovery and cold offline mixed export. The Stage 1 suites below have been rerun and still pass. Physical Android hardware and a new production deployment remain NOT TESTED.
+See [QA-INCREMENT-A.md](./QA-INCREMENT-A.md) for the full feature-by-feature PASS / FAIL / NOT TESTED report. `npm test` now runs **42 tests**: all 25 original tests plus 17 Story model/export/verification tests. `npm run test:story` passes **15 real-browser acceptance groups**, including mixed video/JPG/PNG import, scene edits, sequential native preview, decoded MP4 scene colors, sampled audio placement, downloads, touch viewports, cancellation/retry, empty-state recovery and cold offline mixed export. The Stage 1 suites below have been rerun and still pass. Physical Android hardware and a new production deployment remain NOT TESTED.
 
 ## Stage 1 acceptance audit
 
@@ -16,7 +20,7 @@ See [QA-STAGE1.md](./QA-STAGE1.md) for an explicit PASS / FAIL / NOT TESTED repo
 
 ## Automated results
 
-- `npm test`: **40 passing tests**. The 25 Stage 1 cases cover requested example instructions, composed commands, decimals, unknown/conflicting instructions, speed/volume/trim bounds, slow-motion input duration, mute, audio-only restrictions, chained tempo filters, bounded fades, conversion, required files and manifest/icon dimensions. The 15 Increment A cases cover project/scene ordering, selection, removal/reuse, frame timing, limits and normalized export commands.
+- `npm test`: **42 passing tests**. The 25 Stage 1 cases cover requested example instructions, composed commands, decimals, unknown/conflicting instructions, speed/volume/trim bounds, slow-motion input duration, mute, audio-only restrictions, chained tempo filters, bounded fades, conversion, required files and manifest/icon dimensions. The 17 Increment A cases cover project/scene ordering, selection, removal/reuse, frame timing, limits, normalized export commands, exact 2–7 source mapping and final-file duration/frame-count verification.
 - `npm run test:browser`: **passed** using Chromium 153 with Playwright, Android Chrome user agent, touch/mobile emulation, and 390px/360px viewports. A 1440px screenshot was also inspected. The site was served under `/AutoCut/`, not just the domain root.
 - `npm audit`: **0 reported vulnerabilities**, including development dependencies at test time. This is not a security guarantee for all upstream compiled codecs.
 
@@ -53,7 +57,7 @@ These are **not required to deploy or use AutoCut from a phone**:
 1. `npm install` (Node 22+; development dependencies only).
 2. `npm test`.
 3. `npm run serve` (development-only static server, port 5173, binds 0.0.0.0; no backend processing).
-4. In another terminal, run `npm run test:browser`, `npm run test:stage1`, and `npm run test:story` sequentially. The suites intentionally share ignored fixture/screenshot folders.
+4. In another terminal, run `npm run test:browser`, `npm run test:stage1`, `npm run test:story`, `npm run test:story-preview`, and `npm run test:story-trim` sequentially. The suites intentionally share ignored fixture/screenshot folders.
 
 The automated browser test uses the Linux x64 Chromium binary from npm and its bundled NSS libraries so it does not require a blocked external Playwright browser download in a minimal sandbox. Standard compatible Linux system libraries are still needed. `TEST_URL` can point to a different test host; the default deliberately includes `/AutoCut/`. Generated media, browser libraries, and screenshots are ignored under `tests/fixtures/` and `.arena/`. They are not application assets or repository deliverables.
 

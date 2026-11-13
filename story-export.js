@@ -114,6 +114,34 @@ export function joinCommand(sceneCount, frames) {
   ];
 }
 
+class StoryTimingError extends Error {}
+
+// Verify the actual joined file, not just the duration printed by the UI.
+// Never offer an original-length/partial render as a successful trimmed export.
+export function verifyStoryOutput(metadata, frames) {
+  const video = metadata.streams?.find(
+    (stream) => stream.codec_type === "video",
+  );
+  const audio = metadata.streams?.find(
+    (stream) => stream.codec_type === "audio",
+  );
+  const expected = frames / FPS;
+  const matchesDuration = (duration) =>
+    Number.isFinite(Number(duration)) &&
+    Math.abs(Number(duration) - expected) <= 1 / FPS;
+  if (
+    !video ||
+    !audio ||
+    Number(video.nb_frames) !== frames ||
+    !matchesDuration(video.duration) ||
+    !matchesDuration(metadata.format?.duration)
+  ) {
+    throw new StoryTimingError(
+      `Export timing verification failed. Expected ${expected.toFixed(2)} seconds (${frames} frames). No download was created; try exporting again.`,
+    );
+  }
+}
+
 export async function exportStory(
   project,
   { signal, onStatus = () => {}, onEngine = () => {} } = {},
@@ -249,6 +277,23 @@ export async function exportStory(
       throw new Error(
         "The scenes could not be joined. Try fewer or shorter scenes.",
       );
+    await ff.ffprobe([
+      "-v",
+      "error",
+      "-show_entries",
+      "format=duration:stream=codec_type,duration,nb_frames",
+      "-of",
+      "json",
+      "story.mp4",
+      "-o",
+      "probe.json",
+    ]);
+    assertActive();
+    verifyStoryOutput(
+      JSON.parse(await ff.readFile("probe.json", "utf8")),
+      totalFrames(project),
+    );
+    await ff.deleteFile("probe.json");
     // Drop all intermediates before copying the final file out of WASM.
     for (let index = 0; index < project.scenes.length; index++) {
       await ff.deleteFile(`scene-${index}.mp4`);
@@ -264,6 +309,7 @@ export async function exportStory(
     return new Blob([data], { type: "video/mp4" });
   } catch (error) {
     assertActive();
+    if (error instanceof StoryTimingError) throw error;
     if (
       /memory|allocation|out of bounds|unreachable|Aborted|FS error/i.test(
         `${error} ${logs.join(" ")}`,
