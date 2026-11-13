@@ -1,6 +1,6 @@
 {
   "name": "autocut",
-  "version": "1.2.0-rc.1",
+  "version": "1.2.0-rc.2",
   "private": true,
   "type": "module",
   "description": "Free, browser-only, instruction-driven video editor. No build step required.",
@@ -13,7 +13,8 @@
     "test:story-preview": "node tests/story-preview.test.js",
     "test:story-trim": "node tests/story-trim.test.js",
     "test:stabilization": "node tests/stabilization-browser.test.js",
-    "test:all": "npm test && npm run test:stage1 && npm run test:browser && npm run test:story && npm run test:story-preview && npm run test:story-trim && npm run test:stabilization"
+    "test:all": "npm test && npm run test:stage1 && npm run test:browser && npm run test:story && npm run test:story-preview && npm run test:story-trim && npm run test:stabilization && npm run test:quick-pipeline",
+    "test:quick-pipeline": "node tests/quick-pipeline.test.js"
   },
   "devDependencies": {
     "@playwright/test": "1.65.0",

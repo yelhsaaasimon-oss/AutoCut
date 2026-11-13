@@ -2,6 +2,8 @@
 
 This updates your **local branch copy only**. It does not merge PR #2, deploy GitHub Pages, require a paid service or upload videos. Use the same phone/browser address as before so existing local saved projects stay on the same browser origin.
 
+Current handoff: **v1.2.0-rc.2**. The focused [Quick Edit report](./QA-QUICK-PIPELINE.md) records two reproduced unequal-track export defects and their fixes. Whether they explain your physical-phone failure is **still unconfirmed**. Updating is not physical-device certification.
+
 ## 1. Protect current work and stop the old static server
 
 - Download any finished output you need. In the new build, also use **Save project locally** before closing or refreshing; **edits are not autosaved**. The older `f78fc6f` build cannot save projects, so do not expect its unsaved in-memory scenes to survive this first update.
@@ -24,10 +26,11 @@ The branch must be **`arena/4b30bfe8-autocut`** and `git status --short` should 
 
 ```sh
 test "$(git branch --show-current)" = "arena/4b30bfe8-autocut" && git pull --ff-only origin arena/4b30bfe8-autocut
-git log -1 --format='%h %s'
+git log -1 --format='%H %s'
+git merge-base --is-ancestor 7666f32 HEAD && echo 'Previous stabilization commit is included'
 ```
 
-Compare the printed hash with the delivery message. If Git refuses the fast-forward, stop rather than forcing it. No GitHub password/token should be pasted into this chat. The public repository does not require an account to run the application.
+Compare the printed hash with the new delivery message; it must be newer than `7666f32`. If Git refuses the fast-forward, stop rather than forcing it. No GitHub password/token should be pasted into this chat. The public repository does not require an account to run the application.
 
 ## 4. Restart the same local static server
 
@@ -49,7 +52,7 @@ If you previously used `http://localhost:5173/` or another local path/port, cont
 
 Look below the Quick/Story mode buttons for:
 
-**Build v1.2.0-rc.1**
+**Build v1.2.0-rc.2**
 
 If it is absent or old, close every AutoCut tab/window and reopen while Termux is still serving. A service-worker update can remain waiting while another old tab is open. Do not test exports against a visibly old build. The pinned engine cache can migrate from the previous Increment A build, but if it was never cached or Android evicted it, complete one edit while connected first.
 
@@ -57,7 +60,7 @@ If it is absent or old, close every AutoCut tab/window and reopen while Termux i
 
 Use a short H.264 MP4 that is longer than seven seconds first. Keep Chrome in the foreground, close memory-heavy tabs, and keep the phone unlocked.
 
-1. **Quick Edit:** import, export an untrimmed MP4, apply a short trim and a crop, process again, download and play the new file. Also try mute and MP3 if the source has audio.
+1. **Quick Edit:** first repeat the exact file/instruction that failed on your phone in rc.1. Record PASS/FAIL; copy the diagnostics immediately if it fails or stalls. Then use a short known H.264 MP4: export untrimmed, apply a short trim and a crop, process again, download and play the new file. Also try mute and MP3 if the source has audio. Automated PASS does not replace these phone checks.
 2. **Story trim:** import once—this already adds a scene. Enter source Start **2** and End **7**, then tap **Apply scene timing**. Confirm **1 SCENE · 5.00s**, the applied source range 2–7, and all-scenes export total five seconds. If another full-length scene exists, remove it; do not add a duplicate accidentally.
 3. Preview: verify it starts at source second 2 and stops at the scene end. Export, download and play the **new** MP4; check duration/content, not only the UI clock.
 4. **Mixed story:** add another video and JPG/PNG, change image duration, reorder/remove scenes, and export. Confirm audible/silent slots and cut order.
@@ -69,6 +72,6 @@ Downloads now include duration and a UTC timestamp, for example `autocut-story-5
 
 ## If an export still fails on the phone
 
-Expand **Export diagnostics · on this device only** near the mode buttons. Report the build, workspace, error, expected/actual duration and output track details shown there, plus whether the correct new downloaded file was opened. The panel sends nothing automatically and does not include the media or source filename.
+Expand **Export diagnostics · on this device only** near the mode buttons. Copy the whole panel **after failure or while stuck**, including `pipeline.stage`, stage history, source/selected/output durations, codecs/dimensions and exit codes. Include the exact visible error/percentage, your Chrome version, source file size/duration, instruction and exact local URL. State whether the tab stays open, reloads itself or shows “Aw, Snap”, and whether the correct new downloaded file was opened. If import fails before any export, the panel now records the attempted import too. The panel sends nothing automatically and does not include the media, source filename/tags or raw instruction text. The elapsed value is a snapshot at the last report, not a continuously ticking timer. If Android kills/reloads the page, this in-memory report may be lost; report the last visible stage instead.
 
 Physical-phone certification is still the purpose of this handoff. Do not upload private footage or share credentials. Saved snapshots are local browser storage—not a backup against device loss or Android storage eviction. Keep original media and important completed exports in your device files.

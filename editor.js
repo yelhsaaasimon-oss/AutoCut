@@ -143,6 +143,32 @@ export function parseInstructions(text) {
   return plan;
 }
 
+// A container lasts until its longest track ends. Quick Edit edits the first
+// video track (0:v:0), so trailing audio must not extend the visual timeline.
+export function quickSourceDuration(metadata, fallback = 0) {
+  const video = metadata.streams?.find(
+    (stream) => stream.codec_type === "video",
+  );
+  if (!video)
+    throw new Error(
+      "Choose a file with a video track. AutoCut edits existing videos.",
+    );
+  const [n, d] = String(video.time_base || "0/1")
+    .split("/")
+    .map(Number);
+  for (const duration of [
+    Number(video.duration),
+    (Number(video.duration_ts) * n) / d,
+    Number(metadata.format?.duration),
+    Number(fallback),
+  ]) {
+    if (Number.isFinite(duration) && duration > 0) return duration;
+  }
+  throw new Error(
+    "This video has no readable duration. Try a standard MP4 video.",
+  );
+}
+
 export function timing(plan, duration) {
   if (!Number.isFinite(duration) || duration <= 0)
     throw new Error(
@@ -217,7 +243,14 @@ export function buildCommand(
   if (plan.speed !== 1) vf.push(`setpts=PTS/${plan.speed}`);
   if (plan.fadeIn) vf.push(`fade=t=in:st=0:d=${fadeDuration}`);
   if (plan.fadeOut) vf.push(`fade=t=out:st=${fadeStart}:d=${fadeDuration}`);
-  const af = ["aresample=async=1:first_pts=0", ...tempoFilters(plan.speed)];
+  // Keep the selected VIDEO timeline even if source audio ends early. Padding
+  // is bounded by atrim (including MP3), never an unbounded silent encode.
+  const af = [
+    "aresample=async=1:first_pts=0",
+    ...tempoFilters(plan.speed),
+    "apad",
+    `atrim=duration=${outputDuration}`,
+  ];
   if (plan.volume !== 1) af.push(`volume=${plan.volume}`);
   if (plan.fadeIn) af.push(`afade=t=in:st=0:d=${fadeDuration}`);
   if (plan.fadeOut) af.push(`afade=t=out:st=${fadeStart}:d=${fadeDuration}`);

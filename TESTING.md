@@ -2,7 +2,15 @@
 
 Tested on **2026-11-12**. This is a working static-browser application, not a simulated processing flow.
 
-## Current coordinated audit · v1.2.0-rc.1
+## Current focused Quick Edit investigation · v1.2.0-rc.2
+
+See [QA-QUICK-PIPELINE.md](./QA-QUICK-PIPELINE.md). **Confirmed real-media regressions against the original `7666f32` application:** unequal video/audio durations caused mute-MP4 and short-audio-MP3 integrity rejection, plus an audio tail extended an untrimmed MP4 beyond its video. The corrected version uses the first video track's timeline and bounded audio padding/trimming; it retains full output verification. Rotation, VFR, actual 1080p→1280×720 encoding, native playback, downloaded-byte equality, corrupt input, missing core, bad encoder and bounded non-answering startup/encoding checks pass. Stage-level diagnostics are now available on the phone. **The actual physical-phone failure remains unconfirmed without its diagnostics/source characteristics.** No mobile OOM or Android hardware certification is claimed.
+
+Final full `npm run test:all`: **63 units**, **17 Stage 1 groups**, existing browser integration, **15 Story groups**, preview regressions, **9 trim checks**, **12 stabilization groups**, and **13 new Quick pipeline groups**, all PASS. Dependencies unchanged. `npm run test:quick-pipeline` can reproduce the focused checks alone. Fault-injected timeouts shorten only test-page timers; production load/task deadlines remain 2/15 minutes. Service workers are blocked for that suite so the exact current application and intentional network faults are used; the separate offline/recovery suites still use actual service workers.
+
+The following coordinated-audit section retains the rc.1 baseline results; rc.2 results above supersede its test counts. Update/retest via [UPDATE-TERMUX.md](./UPDATE-TERMUX.md), checking Build v1.2.0-rc.2.
+
+## Previous coordinated audit · v1.2.0-rc.1
 
 See [AUDIT-STABILIZATION.md](./AUDIT-STABILIZATION.md) for the full findings/fixes/features matrix, actual output measurements, resolved test failures and physical-device limitations. [UPDATE-TERMUX.md](./UPDATE-TERMUX.md) is the final phone update/checklist. No merge or deployment was performed.
 
@@ -22,7 +30,7 @@ The user reported an Android trim-preview hang after the original acceptance run
 
 ## Stage 2 — Increment A
 
-See [QA-INCREMENT-A.md](./QA-INCREMENT-A.md) for the full feature-by-feature PASS / FAIL / NOT TESTED report. `npm test` now runs **60 tests**: 26 Quick/parser/deployment tests, 17 Story model/export tests, and 17 shared stabilization regressions. `npm run test:story` passes **15 real-browser acceptance groups**, including mixed video/JPG/PNG import, scene edits, sequential native preview, decoded MP4 scene colors, sampled audio placement, downloads, touch viewports, cancellation/retry, empty-state recovery and cold offline mixed export. The Stage 1 suites below have been rerun and still pass. Physical Android hardware and a new production deployment remain NOT TESTED.
+See [QA-INCREMENT-A.md](./QA-INCREMENT-A.md) for the full feature-by-feature PASS / FAIL / NOT TESTED report. `npm test` now runs **63 tests**: 26 Quick/parser/deployment tests, 17 Story model/export tests, and 20 shared stabilization regressions. `npm run test:story` passes **15 real-browser acceptance groups**, including mixed video/JPG/PNG import, scene edits, sequential native preview, decoded MP4 scene colors, sampled audio placement, downloads, touch viewports, cancellation/retry, empty-state recovery and cold offline mixed export. The Stage 1 suites below have been rerun and still pass. Physical Android hardware and a new production deployment remain NOT TESTED.
 
 ## Stage 1 acceptance audit
 
@@ -30,7 +38,7 @@ See [QA-STAGE1.md](./QA-STAGE1.md) for an explicit PASS / FAIL / NOT TESTED repo
 
 ## Automated results
 
-- `npm test`: **60 passing tests**. The 26 Quick Edit cases cover requested example instructions, composed commands, decimals, unknown/conflicting instructions, speed/volume/trim bounds, slow-motion input duration, mute, audio-only restrictions, chained tempo filters, bounded fades, conversion, required files and manifest/icon dimensions. The 17 Increment A cases cover project/scene ordering, selection, removal/reuse, frame timing, limits, normalized export commands, exact 2–7 source mapping and final-file duration/frame-count verification. The 17 shared regressions cover bounded workers, late failures, error classification, output gates, delayed audio, aspect ratios, restored ranges, filenames, and optional wake-lock lifecycle.
+- `npm test`: **63 passing tests**. The 26 Quick Edit cases cover requested example instructions, composed commands, decimals, unknown/conflicting instructions, speed/volume/trim bounds, slow-motion input duration, mute, audio-only restrictions, chained tempo filters, bounded fades, conversion, required files and manifest/icon dimensions. The 17 Increment A cases cover project/scene ordering, selection, removal/reuse, frame timing, limits, normalized export commands, exact 2–7 source mapping and final-file duration/frame-count verification. The 20 shared regressions cover bounded workers, late failures, error classification, output gates, delayed audio, aspect ratios, restored ranges, filenames, optional wake-lock lifecycle, video-track duration selection and bounded audio padding.
 - `npm run test:browser`: **passed** using Chromium 153 with Playwright, Android Chrome user agent, touch/mobile emulation, and 390px/360px viewports. A 1440px screenshot was also inspected. The site was served under `/AutoCut/`, not just the domain root.
 - `npm audit`: **0 reported vulnerabilities**, including development dependencies at test time. This is not a security guarantee for all upstream compiled codecs.
 
@@ -43,7 +51,7 @@ See [QA-STAGE1.md](./QA-STAGE1.md) for an explicit PASS / FAIL / NOT TESTED repo
 5. Unsupported instructions disable processing and display an understandable error.
 6. A composed edit applies start/end trim, vertical crop, grayscale, brighten, fade-in/out, lower volume, and 2× speed. The generated MP4 is probed: **H.264 video, AAC audio, 134×240 even-dimension center crop, approximately 1.5 seconds**.
 7. Actual output frames are decoded: their RGB channels confirm grayscale; the start frame is black and the later frame contains image detail, confirming a real fade-in.
-8. A real browser download has the correct `-autocut.mp4` filename.
+8. A real browser download has the correct source/autocut/duration/timestamp `.mp4` filename.
 9. A trim that removes the entire video produces a persistent error and preserves the original.
 10. MP3 export produces **one MP3 audio stream, approximately eight seconds** for a four-second source slowed to half speed.
 11. Mute produces an MP4 with **only a video stream**.

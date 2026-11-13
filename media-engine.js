@@ -206,19 +206,23 @@ export async function verifyMediaDecode(engine, path) {
 export function exportDiagnostics(
   workspace,
   status,
-  { expectedDuration, metadata, error } = {},
+  { expectedDuration, metadata, error, pipeline } = {},
 ) {
   const node = globalThis.document?.getElementById("export-diagnostics-text");
   if (!node) return;
   node.textContent = JSON.stringify(
     {
-      build: "1.2.0-rc.1",
+      build: "1.2.0-rc.2",
       workspace,
       status,
       browser: navigator.userAgent,
       secureContext: globalThis.isSecureContext,
       webAssembly: typeof WebAssembly !== "undefined",
       workers: typeof Worker !== "undefined",
+      deviceMemoryGiB: navigator.deviceMemory ?? null,
+      hardwareConcurrency: navigator.hardwareConcurrency ?? null,
+      visibility: document.visibilityState,
+      pipeline,
       paths: ENGINE_PATHS,
       expectedDuration,
       actualDuration: metadata?.format?.duration,

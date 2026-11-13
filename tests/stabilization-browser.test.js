@@ -173,7 +173,7 @@ try {
   const diagnostic = JSON.parse(
     await page.locator("#export-diagnostics-text").textContent(),
   );
-  assert.equal(diagnostic.build, "1.2.0-rc.1");
+  assert.equal(diagnostic.build, "1.2.0-rc.2");
   assert.equal(diagnostic.status, "Verified and ready");
   assert.equal(diagnostic.expectedDuration, 4);
   assert.equal(diagnostic.tracks[0].codec_name, "h264");

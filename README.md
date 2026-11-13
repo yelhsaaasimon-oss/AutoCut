@@ -2,9 +2,9 @@
 
 **Your footage. Your direction.** A free, mobile-first video editor that turns supported plain-word instructions into real FFmpeg edits. Videos stay on the user's device. No account, paid API, backend, build step, or subscription.
 
-## Stabilization candidate · v1.2.0-rc.1
+## Stabilization candidate · v1.2.0-rc.2
 
-**For final phone testing on `arena/4b30bfe8-autocut`. Do not merge or deploy yet.** The coordinated audit, complete findings, actual export measurements and remaining limitations are in [AUDIT-STABILIZATION.md](./AUDIT-STABILIZATION.md). Update your existing local copy using [UPDATE-TERMUX.md](./UPDATE-TERMUX.md).
+**For final phone testing on `arena/4b30bfe8-autocut`. Do not merge or deploy yet.** The latest [focused Quick Edit investigation](./QA-QUICK-PIPELINE.md) reproduces and fixes unequal video/audio-duration export failures. It does **not** establish that these are the cause of the user's still-unverified physical-phone failure. The coordinated audit, complete findings, actual export measurements and remaining limitations are in [AUDIT-STABILIZATION.md](./AUDIT-STABILIZATION.md). Update your existing local copy using [UPDATE-TERMUX.md](./UPDATE-TERMUX.md).
 
 Both editors now verify actual output metadata and full-file decode before enabling a download. Shared worker deadlines/cancellation, corrected delayed-audio handling, distinct duration/timestamped downloads, and on-device export diagnostics improve reliability. New working features are **manual local project Save / Restore / Forget**, **Story 9:16 or 16:9**, a **horizontal Quick Edit prompt**, **filename-based scene arrangement**, and **import cancellation**. Captions/text, image motion, between-scene transitions and extra music/SFX tracks remain future work; there are no fake controls for them.
 
@@ -112,6 +112,7 @@ No external CDN is required. The initial engine download is from **your own GitH
 ## Phone limits and troubleshooting
 
 - **Memory:** WASM decoding needs several times the file size, especially for high-resolution footage. A warning appears above 75 MiB or above 1080p. AutoCut rejects files over **300 MiB**, reduced to **150 MiB** when Chrome reports 2 GB RAM or less. These are protective limits, not a guarantee that smaller files will fit.
+- **Unequal source tracks:** Quick Edit uses the first video track's duration when available; extra audio is cut and shorter audio is padded to the selected edit length. MP3 follows the same video-edit timeline. Container/native duration is a fallback when video duration is unavailable.
 - **Length:** Quick Edit output is capped at **10 minutes**; Story projects at **2 minutes**. This is bounded longer editing, not unlimited long-form support. Each worker operation has a 15-minute deadline, with 2 minutes for startup; timeouts release the worker and allow retry.
 - **Slow edits:** single-threaded WASM can take longer than the video duration. Keep Chrome in the foreground. A screen wake lock is requested when available, but some devices deny it. No special server headers or SharedArrayBuffer are needed.
 - **Chrome closes/reloads:** Android may kill the tab under memory pressure; that cannot be caught by JavaScript. Reopen and restore your last explicitly saved project, or choose a shorter/lower-resolution clip. Originals remain unchanged; encoding restarts from the beginning.
@@ -119,9 +120,9 @@ No external CDN is required. The initial engine download is from **your own GitH
 - **Invalid trim:** the remaining video must be at least 0.1 seconds long. Read the error and reduce the trim times.
 - **MP3 has no audio:** choose a video with an audio track. Muted/silent sources cannot produce a useful audio export.
 - **404 after publishing:** check `main` contains `index.html` at root and Pages is set to `main / (root)`. Use the project URL from Settings → Pages, not only the username domain.
-- **Old version:** save projects, close all AutoCut tabs/windows and reopen; check **Build v1.2.0-rc.1**. Clearing site data also deletes saved projects and offline caches—do not do that as a normal update step.
+- **Old version:** save projects, close all AutoCut tabs/windows and reopen; check **Build v1.2.0-rc.2**. Clearing site data also deletes saved projects and offline caches—do not do that as a normal update step.
 - **Wrong-looking download:** use the new duration/timestamped filename shown after export. Chrome keeps older exports; opening an older file does not test the current edit.
-- **Still failing:** open the local Export diagnostics panel near the mode buttons. It shows capabilities, local paths, expected/actual media and the last error without sending data.
+- **Still failing:** open the local Export diagnostics panel near the mode buttons. It shows the exact pending/failed pipeline stage, structured edit/command, source/output timing/codecs, capabilities and exit codes without sending data. Copy it after failure or while stuck; if the tab reloads, report that too.
 
 ## Privacy and licensing
 
@@ -142,7 +143,8 @@ story-media.js             Local media validation, thumbnails, reduced-size imag
 story-export.js            Sequential scene normalization, audio and MP4 joining
 media-engine.js            Shared bounded engine, output verification and diagnostics
 project-store.js           Manual local source/decision snapshots in IndexedDB
-AUDIT-STABILIZATION.md     Current audit, feature boundaries and real-media results
+AUDIT-STABILIZATION.md     rc.1 coordinated audit and feature boundaries
+QA-QUICK-PIPELINE.md       rc.2 focused Quick Edit reproduction and test evidence
 UPDATE-TERMUX.md           Safe update and final Android test checklist
 QA-INCREMENT-A.md          Feature results, tests and device limitations
 manifest.json              Installable Android PWA metadata
@@ -157,4 +159,4 @@ TESTING.md                 Verification report and device-testing limits
 
 ### Optional maintainer commands (not needed on your phone)
 
-There is no build pipeline. `npm install`, `npm test`, `npm run serve`, and `npm run test:browser` are only for maintainers running automated checks. Test fixture videos, screenshots, and `node_modules` are ignored by Git. With `npm run serve` running, `npm run test:all` runs all suites sequentially. See [TESTING.md](./TESTING.md) for test scope and environment details. Increment the service-worker cache version whenever changing a released app or engine asset.
+There is no build pipeline. `npm install`, `npm test`, `npm run serve`, and `npm run test:browser` are only for maintainers running automated checks. Test fixture videos, screenshots, and `node_modules` are ignored by Git. With `npm run serve` running, `npm run test:all` runs all suites sequentially, including the focused real-media `test:quick-pipeline` investigation. See [TESTING.md](./TESTING.md) for test scope and environment details. Increment the service-worker cache version whenever changing a released app or engine asset.

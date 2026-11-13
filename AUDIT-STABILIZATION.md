@@ -1,5 +1,7 @@
 # AutoCut coordinated audit and stabilization
 
+> Historical rc.1 report retained for its original measurements. The current rc.2 investigation/results and physical-phone limitations are in [QA-QUICK-PIPELINE.md](./QA-QUICK-PIPELINE.md).
+
 **Release candidate:** 1.2.0-rc.1  
 **Audit date:** 2026-11-12  
 **Branch:** `arena/4b30bfe8-autocut`  

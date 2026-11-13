@@ -23,7 +23,12 @@ import {
   totalFrames,
 } from "../story-model.js";
 import { sceneCommand, verifyStoryOutput } from "../story-export.js";
-import { parseInstructions, buildCommand, timing } from "../editor.js";
+import {
+  parseInstructions,
+  buildCommand,
+  timing,
+  quickSourceDuration,
+} from "../editor.js";
 import { storySnapshot } from "../project-store.js";
 
 function fakeEngine(overrides = {}) {
@@ -234,7 +239,7 @@ test("Quick audio preserves leading delay before applying speed/fades", () => {
   const args = buildCommand(parseInstructions("speed 0.5x, fade-in"), 4).args;
   assert.match(
     args[args.indexOf("-af") + 1],
-    /^aresample=async=1:first_pts=0,atempo=0.5,afade/,
+    /^aresample=async=1:first_pts=0,atempo=0.5,apad,atrim=duration=8,afade/,
   );
 });
 test("Saved trimmed scenes restore within limits without full-source intermediate scenes", () => {
@@ -374,4 +379,69 @@ test("Android export filenames identify duration and time and exclude path chara
     "autocut-story-5p00s-20261112-123456-789.mp4",
   );
   assert.ok(!exportFileName("bad/path:clip", 2, "mp4", time).includes("/"));
+});
+
+test("Quick video timeline is not extended by longer source audio/container", () => {
+  assert.equal(
+    quickSourceDuration({
+      format: { duration: "4" },
+      streams: [
+        { codec_type: "audio", duration: "4" },
+        { codec_type: "video", duration: "2" },
+      ],
+    }),
+    2,
+  );
+  assert.equal(
+    quickSourceDuration({
+      format: { duration: "4" },
+      streams: [
+        {
+          codec_type: "video",
+          duration: "N/A",
+          duration_ts: 60,
+          time_base: "1/30",
+        },
+      ],
+    }),
+    2,
+  );
+});
+test("Quick source duration fallbacks reject invalid or missing video", () => {
+  assert.equal(
+    quickSourceDuration({
+      format: { duration: "3" },
+      streams: [{ codec_type: "video" }],
+    }),
+    3,
+  );
+  assert.equal(
+    quickSourceDuration({ streams: [{ codec_type: "video" }] }, 2),
+    2,
+  );
+  assert.throws(
+    () => quickSourceDuration({ streams: [{ codec_type: "video" }] }),
+    /readable duration/,
+  );
+  assert.throws(
+    () =>
+      quickSourceDuration({
+        format: { duration: "4" },
+        streams: [{ codec_type: "audio", duration: "4" }],
+      }),
+    /video track/,
+  );
+});
+test("Quick short audio is padded then bounded to the trimmed/speed-adjusted video timeline", () => {
+  const plan = parseInstructions(
+    "trim the first 1 seconds, remove the last 1 seconds, speed 0.5x, add fade-out",
+  );
+  for (const format of ["mp3", "mp4"]) {
+    const command = buildCommand(plan, 4, format);
+    assert.equal(command.outputDuration, 4);
+    assert.match(
+      command.args[command.args.indexOf("-af") + 1],
+      /atempo=0.5,apad,atrim=duration=4,afade=t=out:st=3:d=1$/,
+    );
+  }
 });

@@ -10,7 +10,12 @@ import {
   exportFileName,
 } from "./media-engine.js";
 import { projectStore } from "./project-store.js";
-import { EXAMPLES, parseInstructions, buildCommand } from "./editor.js";
+import {
+  EXAMPLES,
+  parseInstructions,
+  buildCommand,
+  quickSourceDuration,
+} from "./editor.js";
 
 const $ = (id) => document.getElementById(id);
 const state = {
@@ -26,12 +31,68 @@ const state = {
   progress: 0,
   logs: [],
   wakeLock: null,
+  trace: null,
+  startedAt: 0,
 };
 const MB = 1024 * 1024;
 const maxSize =
   (navigator.deviceMemory && navigator.deviceMemory <= 2 ? 150 : 300) * MB;
 let installPrompt = null;
 
+// No media names, arbitrary instructions, source tags or raw FFmpeg logs.
+// Keep the last known stage visible while an async operation is pending.
+function quickReport(status, details = {}) {
+  exportDiagnostics("Quick Edit", status, {
+    expectedDuration: state.outputDuration || undefined,
+    ...details,
+    pipeline: state.trace
+      ? {
+          ...state.trace,
+          elapsedMs: state.startedAt
+            ? Math.round(performance.now() - state.startedAt)
+            : 0,
+          progressPercent: state.progress,
+        }
+      : undefined,
+  });
+}
+function quickStage(stage, detail) {
+  state.trace.stage = stage;
+  state.trace.events.push({
+    stage,
+    elapsedMs: Math.round(performance.now() - state.startedAt),
+  });
+  $("progress-detail").textContent = detail;
+  quickReport("In progress");
+}
+function sourceSummary(metadata) {
+  return {
+    containerDuration: metadata.format?.duration,
+    tracks: metadata.streams?.map(
+      ({
+        codec_type,
+        codec_name,
+        duration,
+        start_time,
+        width,
+        height,
+        avg_frame_rate,
+        sample_rate,
+        channels,
+      }) => ({
+        codec_type,
+        codec_name,
+        duration,
+        start_time,
+        width,
+        height,
+        avg_frame_rate,
+        sample_rate,
+        channels,
+      }),
+    ),
+  };
+}
 function notice(message) {
   $("app-notice").textContent = message;
   $("app-notice").hidden = !message;
@@ -165,7 +226,20 @@ async function selectFile(file, restoring = false) {
   if (!file || (state.busy && !restoring)) return;
   notice("");
   showErrors([]);
+  state.trace = {
+    stage: "import",
+    source: {
+      bytes: file.size,
+      mime: /^video\/[a-z0-9.+-]+$/i.test(file.type) ? file.type : "unknown",
+    },
+    events: [],
+  };
+  state.startedAt = 0;
+  state.outputDuration = 0;
+  state.progress = 0;
+  quickReport("File selected");
   if (!file.size) {
+    quickReport("Import rejected", { error: "Empty file" });
     notice("This file is empty. Choose a video with content.");
     return;
   }
@@ -175,10 +249,14 @@ async function selectFile(file, restoring = false) {
       /\.(mp4|mov|m4v|mkv|avi|webm|3gp|mpeg|mpg|mts|m2ts)$/i.test(file.name)
     )
   ) {
+    quickReport("Import rejected", { error: "Unsupported file type" });
     notice("Choose a video file, such as MP4, MOV, or WebM.");
     return;
   }
   if (file.size > maxSize) {
+    quickReport("Import rejected", {
+      error: "Source exceeds device size budget",
+    });
     notice(
       `This file is too large for safe browser editing (${Math.round(file.size / MB)} MB). Choose a clip under ${maxSize / MB} MB. Shorter clips work best on phones.`,
     );
@@ -311,6 +389,14 @@ $("preview-video").addEventListener("loadedmetadata", () => {
   const video = $("preview-video");
   if ($("original-tab").getAttribute("aria-pressed") === "true" && state.file) {
     state.duration = video.duration;
+    if (state.trace)
+      state.trace.source.native = {
+        duration: video.duration,
+        width: video.videoWidth,
+        height: video.videoHeight,
+      };
+    if (!state.busy && state.trace?.stage === "import")
+      quickReport("Source preview metadata ready");
     $("file-meta").textContent =
       `${(state.file.size / MB).toFixed(1)} MB · ${seconds(video.duration)} · ${video.videoWidth} × ${video.videoHeight}`;
     if (video.videoWidth * video.videoHeight > 1920 * 1080) {
@@ -328,6 +414,10 @@ $("preview-video").addEventListener("timeupdate", () => {
 });
 $("preview-video").addEventListener("error", () => {
   if (!state.file || !$("preview-video").getAttribute("src")) return;
+  if (!state.busy)
+    quickReport("Browser preview unavailable", {
+      error: "Native media error; FFmpeg conversion may still work",
+    });
   $("preview-status").textContent = "Browser cannot preview this codec";
   $("file-meta").textContent =
     `${(state.file.size / MB).toFixed(1)} MB · Preview unavailable`;
@@ -389,17 +479,20 @@ async function loadEngine(operation) {
     state.logs.push(message);
     if (state.logs.length > 50) state.logs.shift();
     const match = message.match(/time=(\d+):(\d+):(\d+(?:\.\d+)?)/);
-    if (match && state.outputDuration) {
+    if (match && state.outputDuration && state.trace?.stage === "encode") {
       const elapsed = +match[1] * 3600 + +match[2] * 60 + +match[3];
       const amount = Math.min(98, 12 + (elapsed / state.outputDuration) * 85);
       updateProgress(amount, `Applying your edits · ${Math.floor(amount)}%`);
+      quickReport("Encoding");
     }
   });
   // Loading is indeterminate: do not display an invented download percentage.
   $("progress").removeAttribute("value");
   $("progress-status").textContent = "Loading the editing engine…";
-  $("progress-detail").textContent =
-    "First use downloads ~31 MB. Keep this tab open. Later visits can use the offline cache.";
+  quickStage(
+    "load-engine",
+    "First use downloads ~31 MB. Keep this tab open. Later visits can use the offline cache. Startup deadline: 2 minutes; Cancel remains available.",
+  );
   $("engine-status").textContent = "Downloading & starting FFmpeg…";
   try {
     await engine.load();
@@ -432,20 +525,45 @@ $("process-button").addEventListener("click", async () => {
   $("preview-video").pause();
   const operation = ++state.operation;
   const format = $("export-format").value;
+  // Do not put an extensionless source basename into commands/diagnostics.
+  // FFmpeg detects content for other MIME-valid videos using the .bin fallback.
   const extension =
     state.file.name
-      .split(".")
-      .pop()
-      .replace(/[^a-z0-9]/gi, "")
-      .slice(0, 8) || "bin";
+      .match(/\.(mp4|mov|m4v|mkv|avi|webm|3gp|mpeg|mpg|mts|m2ts)$/i)?.[1]
+      .toLowerCase() || "bin";
   const inputName = `input.${extension}`;
   let engine;
   let success = false;
   let failureMessage = "";
   state.progress = 0;
   state.outputDuration = 0;
+  state.startedAt = performance.now();
+  state.trace = {
+    stage: "parse",
+    events: [],
+    format,
+    source: {
+      bytes: state.file.size,
+      mime: /^video\/[a-z0-9.+-]+$/i.test(state.file.type)
+        ? state.file.type
+        : "unknown",
+    },
+    plan: Object.fromEntries(
+      [
+        "trimStart",
+        "trimEnd",
+        "aspect",
+        "speed",
+        "volume",
+        "grayscale",
+        "brighten",
+        "fadeIn",
+        "fadeOut",
+      ].map((key) => [key, plan[key]]),
+    ),
+  };
   setBusy(true);
-  exportDiagnostics("Quick Edit", "Starting local export");
+  quickReport("Starting local export");
   try {
     keepScreenAwake(
       () => operation === state.operation && state.busy,
@@ -458,24 +576,31 @@ $("process-button").addEventListener("click", async () => {
     if (operation !== state.operation) return;
     $("progress").value = 3;
     $("progress-status").textContent = "Reading your video…";
-    $("progress-detail").textContent =
-      "Keep this tab open and your phone unlocked. Processing can take longer than the video itself.";
+    quickStage(
+      "read-source",
+      "Copying the selected file into the local worker. Keep Chrome in the foreground; Cancel remains available.",
+    );
     state.logs = [];
     await engine.writeFile(
       inputName,
       new Uint8Array(await state.file.arrayBuffer()),
     );
+    quickStage(
+      "probe-source",
+      "Reading source tracks and timing with FFprobe. Worker-operation deadline: 15 minutes.",
+    );
     const probeCode = await engine.ffprobe([
       "-v",
       "error",
       "-show_entries",
-      "format=duration:stream=codec_type,duration",
+      "format=duration:stream=codec_type,codec_name,duration,duration_ts,time_base,width,height,avg_frame_rate,start_time,sample_rate,channels",
       "-of",
       "json",
       inputName,
       "-o",
       "probe.json",
     ]);
+    state.trace.probeExitCode = probeCode;
     // Core 0.12.10 ffprobe can return -1 on success; validate its JSON output too.
     if (probeCode !== 0 && probeCode !== -1)
       throw new Error(
@@ -489,15 +614,13 @@ $("process-button").addEventListener("click", async () => {
         "This file could not be read. Try a standard H.264 MP4 video.",
       );
     }
-    const duration = Number(
-      metadata.format?.duration ||
-        metadata.streams?.find((s) => Number(s.duration) > 0)?.duration ||
-        state.duration,
+    state.trace.source = { ...state.trace.source, ...sourceSummary(metadata) };
+    const duration = quickSourceDuration(metadata, state.duration);
+    state.trace.source.selectedVideoDuration = duration;
+    quickStage(
+      "build-command",
+      "Building the supported edit from the first video track's timeline.",
     );
-    if (!metadata.streams?.some((s) => s.codec_type === "video"))
-      throw new Error(
-        "Choose a file with a video track. AutoCut edits existing videos.",
-      );
     if (
       format === "mp3" &&
       !metadata.streams.some((s) => s.codec_type === "audio")
@@ -507,11 +630,14 @@ $("process-button").addEventListener("click", async () => {
       );
     const command = buildCommand(plan, duration, format, inputName);
     state.outputDuration = command.outputDuration;
-    exportDiagnostics("Quick Edit", "Encoding", {
-      expectedDuration: command.outputDuration,
-    });
+    state.trace.command = command.args;
+    quickStage(
+      "encode",
+      "Encoding on this device. Progress uses actual FFmpeg timestamps, not a predicted clock. Each worker operation is limited to 15 minutes.",
+    );
     updateProgress(12, "Applying your edits…");
     const result = await engine.exec(command.args);
+    state.trace.encodeExitCode = result;
     if (result !== 0)
       throw new Error(
         "Processing failed. Try a shorter H.264 MP4 video, or close other tabs to free memory.",
@@ -519,7 +645,12 @@ $("process-button").addEventListener("click", async () => {
     await engine.deleteFile(inputName);
     await engine.deleteFile("probe.json");
     updateProgress(99, "Verifying the generated file…");
+    quickStage(
+      "probe-output",
+      "Inspecting generated duration, codecs and dimensions before allowing a download.",
+    );
     const actual = await probeMedia(engine, `output.${format}`);
+    state.trace.output = sourceSummary(actual);
     verifyQuickOutput(
       actual,
       command.outputDuration,
@@ -527,7 +658,15 @@ $("process-button").addEventListener("click", async () => {
       plan.volume !== 0 &&
         metadata.streams.some((stream) => stream.codec_type === "audio"),
     );
+    quickStage(
+      "decode-output",
+      "Decoding the entire output to check integrity. This is a separate pass, not a frozen encoding percentage.",
+    );
     await verifyMediaDecode(engine, `output.${format}`);
+    quickStage(
+      "read-output",
+      "Preparing the verified file for local preview and download.",
+    );
     const data = await engine.readFile(`output.${format}`);
     if (!data.byteLength)
       throw new Error(
@@ -553,7 +692,8 @@ $("process-button").addEventListener("click", async () => {
       `Ready · ${(blob.size / MB).toFixed(1)} MB · ${seconds(command.outputDuration)} · No watermark`;
     showPreview(true);
     success = true;
-    exportDiagnostics("Quick Edit", "Verified and ready", {
+    state.trace.stage = "ready";
+    quickReport("Verified and ready", {
       expectedDuration: command.outputDuration,
       metadata: actual,
     });
@@ -563,7 +703,19 @@ $("process-button").addEventListener("click", async () => {
   } catch (error) {
     if (operation === state.operation) {
       failureMessage = friendlyError(error);
-      exportDiagnostics("Quick Edit", "Export failed", {
+      // Expose the exact pending phase without private FFmpeg metadata/logs.
+      state.trace.errorHints = [
+        [
+          /out of memory|memory access out of bounds|cannot allocate|allocation failed/i,
+          "allocation-or-memory",
+        ],
+        [/decoder.*not found|unknown decoder/i, "decoder-unavailable"],
+        [/error while decoding|invalid data|moov atom/i, "media-decode"],
+        [/error initializing|error opening encoder/i, "encoder-initialization"],
+      ]
+        .filter(([pattern]) => state.logs.some((line) => pattern.test(line)))
+        .map(([, hint]) => hint);
+      quickReport("Export failed", {
         expectedDuration: state.outputDuration,
         error: failureMessage,
       });
@@ -594,7 +746,7 @@ $("cancel-button").addEventListener("click", () => {
   state.wakeLock?.release().catch(() => {});
   state.wakeLock = null;
   setBusy(false);
-  exportDiagnostics("Quick Edit", "Cancelled; worker released");
+  quickReport("Cancelled; worker released");
   $("engine-status").textContent = "Cancelled · ready when you are";
   $("engine-dot").classList.remove("ready");
   notice("Editing cancelled. Your original video is unchanged.");
