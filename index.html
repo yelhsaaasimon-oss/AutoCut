@@ -15,6 +15,7 @@
     <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./story.css" />
     <title>AutoCut — Your footage. Your direction.</title>
   </head>
   <body>
@@ -121,242 +122,542 @@
         </button>
       </header>
       <main id="editor">
-        <div class="page-heading">
-          <div>
-            <div class="eyebrow">
-              <span></span> LESS EDITING. MORE CREATING.
-            </div>
-            <h1>Your footage. <span>Your direction.</span></h1>
-            <p>Tell us the edit. We’ll handle the cut. All in your browser.</p>
-          </div>
-          <div class="free-badge">
-            <svg><use href="#i-spark" /></svg>100% free. No sign-up.
-          </div>
+        <div class="editor-modes" role="group" aria-label="Editing workspace">
+          <button id="quick-mode" aria-pressed="true">
+            Quick edit <span>Stage 1</span>
+          </button>
+          <button id="story-mode" aria-pressed="false">
+            Story project <span>Multiple clips</span>
+          </button>
         </div>
-        <div class="editor-grid">
-          <section class="panel source-panel" aria-labelledby="source-heading">
-            <div class="panel-heading">
-              <div class="section-title">
-                <span class="step">01</span>
-                <h2 id="source-heading">Start with your video</h2>
+        <div id="quick-editor">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">
+                <span></span> LESS EDITING. MORE CREATING.
               </div>
-              <span class="small-label">THE ORIGINAL</span>
+              <h1>Your footage. <span>Your direction.</span></h1>
+              <p>
+                Tell us the edit. We’ll handle the cut. All in your browser.
+              </p>
             </div>
-            <input
-              type="file"
-              id="video-input"
-              accept="video/*,.mkv,.avi,.mov,.webm,.mp4"
-              hidden
-            />
-            <button class="dropzone" id="dropzone">
-              <span class="upload-symbol"
-                ><svg><use href="#i-upload" /></svg></span
-              ><strong>Good edits start here.</strong
-              ><span>Drop a video, or <b>browse files</b></span
-              ><span class="file-types">MP4, MOV, WebM & more</span>
-            </button>
-            <div class="source-file" id="source-file" hidden>
-              <span class="file-icon"
-                ><svg><use href="#i-film" /></svg
-              ></span>
-              <div>
-                <strong id="file-name"></strong><span id="file-meta"></span>
+            <div class="free-badge">
+              <svg><use href="#i-spark" /></svg>100% free. No sign-up.
+            </div>
+          </div>
+          <div class="editor-grid">
+            <section
+              class="panel source-panel"
+              aria-labelledby="source-heading"
+            >
+              <div class="panel-heading">
+                <div class="section-title">
+                  <span class="step">01</span>
+                  <h2 id="source-heading">Start with your video</h2>
+                </div>
+                <span class="small-label">THE ORIGINAL</span>
               </div>
-              <button class="text-button" id="replace-button">Replace</button>
-            </div>
-            <div class="upload-note">
-              <svg><use href="#i-shield" /></svg
-              ><span>No uploads. Your video never leaves this device.</span>
-            </div>
-            <div class="inline-warning" id="file-warning" hidden></div>
-          </section>
+              <input
+                type="file"
+                id="video-input"
+                accept="video/*,.mkv,.avi,.mov,.webm,.mp4"
+                hidden
+              />
+              <button class="dropzone" id="dropzone">
+                <span class="upload-symbol"
+                  ><svg><use href="#i-upload" /></svg></span
+                ><strong>Good edits start here.</strong
+                ><span>Drop a video, or <b>browse files</b></span
+                ><span class="file-types">MP4, MOV, WebM & more</span>
+              </button>
+              <div class="source-file" id="source-file" hidden>
+                <span class="file-icon"
+                  ><svg><use href="#i-film" /></svg
+                ></span>
+                <div>
+                  <strong id="file-name"></strong><span id="file-meta"></span>
+                </div>
+                <button class="text-button" id="replace-button">Replace</button>
+              </div>
+              <div class="upload-note">
+                <svg><use href="#i-shield" /></svg
+                ><span>No uploads. Your video never leaves this device.</span>
+              </div>
+              <div class="inline-warning" id="file-warning" hidden></div>
+            </section>
 
-          <section
-            class="panel preview-panel"
-            aria-labelledby="preview-heading"
-          >
-            <div class="panel-heading">
-              <div class="section-title">
-                <span class="step">03</span>
-                <h2 id="preview-heading">See your next cut</h2>
+            <section
+              class="panel preview-panel"
+              aria-labelledby="preview-heading"
+            >
+              <div class="panel-heading">
+                <div class="section-title">
+                  <span class="step">03</span>
+                  <h2 id="preview-heading">See your next cut</h2>
+                </div>
+                <div
+                  class="preview-tabs"
+                  role="group"
+                  aria-label="Preview version"
+                >
+                  <button
+                    id="original-tab"
+                    class="selected"
+                    aria-pressed="true"
+                  >
+                    Original</button
+                  ><button id="edited-tab" aria-pressed="false" disabled>
+                    Edited
+                  </button>
+                </div>
               </div>
-              <div
-                class="preview-tabs"
-                role="group"
-                aria-label="Preview version"
+              <div class="preview-stage" id="preview-stage">
+                <div class="empty-preview" id="empty-preview">
+                  <div class="frame-corners">
+                    <span class="play-shape"></span>
+                  </div>
+                  <strong>A little footage. A lot of possibilities.</strong
+                  ><span>Your video preview will appear here.</span>
+                </div>
+                <video
+                  id="preview-video"
+                  controls
+                  playsinline
+                  preload="metadata"
+                  hidden
+                ></video
+                ><span class="preview-watermark">AUTOCUT</span>
+              </div>
+              <div class="preview-footer">
+                <span
+                  ><span class="status-dot" id="preview-dot"></span
+                  ><span id="preview-status">Waiting for your video</span></span
+                ><span id="preview-duration">00:00 / 00:00</span>
+              </div>
+            </section>
+
+            <section
+              class="panel instructions-panel"
+              aria-labelledby="instructions-heading"
+            >
+              <div class="panel-heading">
+                <div class="section-title">
+                  <span class="step">02</span>
+                  <h2 id="instructions-heading">Describe your edit</h2>
+                </div>
+                <span class="small-label">PLAIN WORDS. REAL EDITS.</span>
+              </div>
+              <label class="sr-only" for="instructions"
+                >Editing instructions</label
               >
-                <button id="original-tab" class="selected" aria-pressed="true">
-                  Original</button
-                ><button id="edited-tab" aria-pressed="false" disabled>
-                  Edited
+              <div class="prompt-wrap">
+                <svg><use href="#i-spark" /></svg
+                ><textarea
+                  id="instructions"
+                  maxlength="2000"
+                  placeholder="Make it vertical, trim the first 5 seconds, and add a fade-out…"
+                  rows="4"
+                  spellcheck="false"
+                  aria-describedby="instruction-help"
+                ></textarea>
+                <div class="prompt-bottom">
+                  <span>YOU DIRECT. AUTOCUT EDITS.</span
+                  ><span id="character-count">0 / 2000</span>
+                </div>
+              </div>
+              <div class="suggestions-title">
+                A little inspiration <span>Tap to add an edit</span>
+              </div>
+              <div class="suggestions" id="suggestions">
+                <button data-command="Make the video vertical (9:16)">
+                  <span>▯</span> Vertical 9:16</button
+                ><button data-command="Trim the first 5 seconds">
+                  <svg><use href="#i-cut" /></svg>Trim start</button
+                ><button data-command="Convert to black and white">
+                  <span>◐</span>Black & white</button
+                ><button data-command="Add fade-in and fade-out">
+                  <span>◒</span>Fade in & out</button
+                ><button data-command="Increase the video speed to 2x">
+                  <span>»</span>Speed up</button
+                ><button data-command="Mute the audio">
+                  <span>♫</span>Mute audio
                 </button>
               </div>
-            </div>
-            <div class="preview-stage" id="preview-stage">
-              <div class="empty-preview" id="empty-preview">
-                <div class="frame-corners">
-                  <span class="play-shape"></span>
-                </div>
-                <strong>A little footage. A lot of possibilities.</strong
-                ><span>Your video preview will appear here.</span>
+              <div id="instruction-help" class="instruction-help">
+                Simple instructions, not generative AI.
+                <button id="commands-open">
+                  See all supported edits <span>↗</span>
+                </button>
               </div>
-              <video
-                id="preview-video"
-                controls
-                playsinline
-                preload="metadata"
+              <div
+                id="instruction-errors"
+                class="inline-warning"
+                role="alert"
                 hidden
-              ></video
-              ><span class="preview-watermark">AUTOCUT</span>
-            </div>
-            <div class="preview-footer">
-              <span
-                ><span class="status-dot" id="preview-dot"></span
-                ><span id="preview-status">Waiting for your video</span></span
-              ><span id="preview-duration">00:00 / 00:00</span>
-            </div>
-          </section>
+              ></div>
+              <button id="process-button" class="primary-button" disabled>
+                <svg><use href="#i-spark" /></svg><span>Make the cut</span
+                ><svg class="button-arrow"><use href="#i-arrow" /></svg>
+              </button>
+              <p class="engine-note">
+                <span class="status-dot" id="engine-dot"></span
+                ><span id="engine-status"
+                  >Engine loads when you’re ready · ~31 MB first download</span
+                >
+              </p>
+            </section>
 
-          <section
-            class="panel instructions-panel"
-            aria-labelledby="instructions-heading"
-          >
-            <div class="panel-heading">
-              <div class="section-title">
-                <span class="step">02</span>
-                <h2 id="instructions-heading">Describe your edit</h2>
-              </div>
-              <span class="small-label">PLAIN WORDS. REAL EDITS.</span>
-            </div>
-            <label class="sr-only" for="instructions"
-              >Editing instructions</label
+            <section
+              class="panel output-panel"
+              aria-labelledby="output-heading"
             >
-            <div class="prompt-wrap">
-              <svg><use href="#i-spark" /></svg
-              ><textarea
-                id="instructions"
-                maxlength="2000"
-                placeholder="Make it vertical, trim the first 5 seconds, and add a fade-out…"
-                rows="4"
-                spellcheck="false"
-                aria-describedby="instruction-help"
-              ></textarea>
-              <div class="prompt-bottom">
-                <span>YOU DIRECT. AUTOCUT EDITS.</span
-                ><span id="character-count">0 / 2000</span>
+              <div class="panel-heading">
+                <div class="section-title">
+                  <svg class="output-icon"><use href="#i-film" /></svg>
+                  <h2 id="output-heading">Your edit, at a glance</h2>
+                </div>
+                <span class="outline-badge" id="edit-count">NO EDITS YET</span>
               </div>
-            </div>
-            <div class="suggestions-title">
-              A little inspiration <span>Tap to add an edit</span>
-            </div>
-            <div class="suggestions" id="suggestions">
-              <button data-command="Make the video vertical (9:16)">
-                <span>▯</span> Vertical 9:16</button
-              ><button data-command="Trim the first 5 seconds">
-                <svg><use href="#i-cut" /></svg>Trim start</button
-              ><button data-command="Convert to black and white">
-                <span>◐</span>Black & white</button
-              ><button data-command="Add fade-in and fade-out">
-                <span>◒</span>Fade in & out</button
-              ><button data-command="Increase the video speed to 2x">
-                <span>»</span>Speed up</button
-              ><button data-command="Mute the audio">
-                <span>♫</span>Mute audio
-              </button>
-            </div>
-            <div id="instruction-help" class="instruction-help">
-              Simple instructions, not generative AI.
-              <button id="commands-open">
-                See all supported edits <span>↗</span>
-              </button>
-            </div>
-            <div
-              id="instruction-errors"
-              class="inline-warning"
-              role="alert"
-              hidden
-            ></div>
-            <button id="process-button" class="primary-button" disabled>
-              <svg><use href="#i-spark" /></svg><span>Make the cut</span
-              ><svg class="button-arrow"><use href="#i-arrow" /></svg>
-            </button>
-            <p class="engine-note">
-              <span class="status-dot" id="engine-dot"></span
-              ><span id="engine-status"
-                >Engine loads when you’re ready · ~31 MB first download</span
+              <div class="edit-plan" id="edit-plan">
+                <div class="empty-plan">
+                  <span class="plan-line"></span>
+                  <p>
+                    Your instructions become a plan.<br /><span
+                      >Add an edit to see what’s changing.</span
+                    >
+                  </p>
+                </div>
+              </div>
+              <div class="progress-region" id="progress-region" hidden>
+                <div class="progress-label">
+                  <span id="progress-status" role="status" aria-live="polite"
+                    >Preparing…</span
+                  ><button id="cancel-button">Cancel</button>
+                </div>
+                <progress
+                  id="progress"
+                  value="0"
+                  max="100"
+                  aria-label="Video processing progress"
+                ></progress>
+                <p id="progress-detail">Keep this tab open while processing.</p>
+              </div>
+              <div class="export-options">
+                <div>
+                  <label for="export-format">Export format</label
+                  ><select id="export-format">
+                    <option value="mp4">MP4 video</option>
+                    <option value="mp3">MP3 audio only</option>
+                  </select>
+                </div>
+                <span id="format-detail">H.264 · AAC audio</span>
+              </div>
+              <a
+                class="export-button disabled"
+                id="download-button"
+                aria-disabled="true"
+                ><svg><use href="#i-download" /></svg
+                ><span>Export your video</span
+                ><span class="export-extension">.mp4</span></a
               >
-            </p>
-          </section>
-
-          <section class="panel output-panel" aria-labelledby="output-heading">
-            <div class="panel-heading">
-              <div class="section-title">
-                <svg class="output-icon"><use href="#i-film" /></svg>
-                <h2 id="output-heading">Your edit, at a glance</h2>
-              </div>
-              <span class="outline-badge" id="edit-count">NO EDITS YET</span>
+              <p class="export-note" id="export-note">
+                Your next great video is one cut away.
+              </p>
+            </section>
+          </div>
+          <div class="bottom-notes">
+            <span
+              ><svg><use href="#i-shield" /></svg>Private by design</span
+            ><span
+              ><svg><use href="#i-spark" /></svg>No credits. No
+              watermarks.</span
+            ><span
+              ><svg><use href="#i-film" /></svg>Powered by FFmpeg</span
+            >
+          </div>
+          <footer class="main-footer">
+            <span>A small tool for your next big idea.</span
+            ><span>AUTOCUT <span class="footer-version">/ v1.0</span></span>
+          </footer>
+          <div class="app-notice" id="app-notice" role="status" hidden></div>
+        </div>
+        <section id="story-editor" hidden aria-labelledby="story-title">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow"><span></span>STORY MODE · INCREMENT A</div>
+              <h1 id="story-title">A few scenes. <span>One story.</span></h1>
+              <p>
+                Arrange your footage and images. Keep every cut on your device.
+              </p>
             </div>
-            <div class="edit-plan" id="edit-plan">
-              <div class="empty-plan">
-                <span class="plan-line"></span>
-                <p>
-                  Your instructions become a plan.<br /><span
-                    >Add an edit to see what’s changing.</span
-                  >
+            <span class="free-badge">Hard cuts · No uploads</span>
+          </div>
+          <div class="story-intro">
+            <svg><use href="#i-shield" /></svg
+            ><span
+              >Start small: up to 8 assets, 12 scenes and 2 minutes. Videos ≤75
+              MiB; JPG/PNG ≤15 MiB. Project limit:
+              <b id="story-byte-limit">100 MiB</b>. High-resolution clips can
+              still exceed phone memory. Nothing is saved after a refresh.</span
+            >
+          </div>
+          <div
+            id="story-message"
+            class="story-message"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></div>
+          <div class="story-grid">
+            <section
+              class="panel story-library"
+              aria-labelledby="library-heading"
+            >
+              <div class="panel-heading">
+                <div class="section-title">
+                  <span class="step">01</span>
+                  <h2 id="library-heading">Your source material</h2>
+                </div>
+                <span class="outline-badge" id="story-asset-count"
+                  >0 / 8 ASSETS</span
+                >
+              </div>
+              <input
+                id="story-input"
+                type="file"
+                accept="video/*,image/jpeg,image/png,.jpg,.jpeg,.png,.mp4,.webm,.mov"
+                multiple
+                hidden
+              />
+              <button id="story-import" class="story-import">
+                <svg><use href="#i-plus" /></svg>Import videos & images<span
+                  >Choose several files · JPG, PNG & readable videos</span
+                >
+              </button>
+              <div id="story-assets" class="story-assets">
+                <p class="story-empty">
+                  Your footage, maps and illustrations live here. Each import
+                  also adds a scene.
                 </p>
               </div>
-            </div>
-            <div class="progress-region" id="progress-region" hidden>
-              <div class="progress-label">
-                <span id="progress-status" role="status" aria-live="polite"
-                  >Preparing…</span
-                ><button id="cancel-button">Cancel</button>
-              </div>
-              <progress
-                id="progress"
-                value="0"
-                max="100"
-                aria-label="Video processing progress"
-              ></progress>
-              <p id="progress-detail">Keep this tab open while processing.</p>
-            </div>
-            <div class="export-options">
-              <div>
-                <label for="export-format">Export format</label
-                ><select id="export-format">
-                  <option value="mp4">MP4 video</option>
-                  <option value="mp3">MP3 audio only</option>
-                </select>
-              </div>
-              <span id="format-detail">H.264 · AAC audio</span>
-            </div>
-            <a
-              class="export-button disabled"
-              id="download-button"
-              aria-disabled="true"
-              ><svg><use href="#i-download" /></svg
-              ><span>Export your video</span
-              ><span class="export-extension">.mp4</span></a
+              <p class="story-small">
+                Images start at 3 seconds. Source files are never changed.
+                Imported assets can be reused.
+              </p>
+            </section>
+            <section
+              class="panel story-preview-panel"
+              aria-labelledby="story-preview-heading"
             >
-            <p class="export-note" id="export-note">
-              Your next great video is one cut away.
-            </p>
-          </section>
-        </div>
-        <div class="bottom-notes">
-          <span
-            ><svg><use href="#i-shield" /></svg>Private by design</span
-          ><span
-            ><svg><use href="#i-spark" /></svg>No credits. No watermarks.</span
-          ><span
-            ><svg><use href="#i-film" /></svg>Powered by FFmpeg</span
+              <div class="panel-heading">
+                <div class="section-title">
+                  <span class="step">02</span>
+                  <h2 id="story-preview-heading">Preview the sequence</h2>
+                </div>
+                <span class="small-label">16:9 · FIT, NOT CROP</span>
+              </div>
+              <div class="story-stage">
+                <div id="story-preview-empty" class="story-empty">
+                  Import a clip or image to begin.
+                </div>
+                <video
+                  id="story-video"
+                  playsinline
+                  preload="auto"
+                  hidden
+                  aria-label="Story scene preview"
+                ></video
+                ><img id="story-image" alt="Current image scene" hidden /><span
+                  id="story-preview-loading"
+                  hidden
+                  >Loading scene…</span
+                >
+              </div>
+              <div class="story-transport">
+                <button id="story-play" disabled aria-label="Play story">
+                  ▶ Play</button
+                ><output id="story-clock">0.00 / 0.00s</output
+                ><label class="story-mute-label"
+                  ><input id="story-preview-mute" type="checkbox" />Quiet
+                  preview</label
+                >
+              </div>
+              <label class="sr-only" for="story-scrub"
+                >Story playhead position in seconds</label
+              ><input
+                id="story-scrub"
+                type="range"
+                min="0"
+                max="0"
+                step="0.0416666667"
+                value="0"
+                disabled
+              />
+              <p id="story-preview-label" class="story-small">
+                Source preview · final MP4 appears below after export.
+              </p>
+            </section>
+          </div>
+          <section
+            class="panel story-timeline-panel"
+            aria-labelledby="timeline-heading"
           >
-        </div>
-        <footer class="main-footer">
-          <span>A small tool for your next big idea.</span
-          ><span>AUTOCUT <span class="footer-version">/ v1.0</span></span>
-        </footer>
-        <div class="app-notice" id="app-notice" role="status" hidden></div>
+            <div class="panel-heading">
+              <div class="section-title">
+                <svg><use href="#i-film" /></svg>
+                <h2 id="timeline-heading">Your story, in order</h2>
+              </div>
+              <span class="outline-badge" id="story-total"
+                >0 SCENES · 0.00s</span
+              >
+            </div>
+            <p class="story-small">
+              Swipe the timeline sideways. Tap a scene to select it, or use the
+              playhead slider to seek.
+            </p>
+            <div id="story-timeline-scroll" class="story-timeline-scroll">
+              <div
+                id="story-timeline"
+                class="story-timeline"
+                aria-label="Visual scene timeline"
+              >
+                <div class="story-empty">
+                  Every story starts with a first scene.
+                </div>
+                <div id="story-playhead" class="story-playhead" hidden></div>
+              </div>
+            </div>
+          </section>
+          <div class="story-grid story-edit-grid">
+            <section class="panel" aria-labelledby="scenes-heading">
+              <div class="panel-heading">
+                <div class="section-title">
+                  <span class="step">03</span>
+                  <h2 id="scenes-heading">Arrange your scenes</h2>
+                </div>
+                <span class="small-label">HARD CUTS ONLY</span>
+              </div>
+              <ol id="story-scenes" class="story-scenes">
+                <li class="story-empty">
+                  No scenes yet. Import your first asset above.
+                </li>
+              </ol>
+            </section>
+            <div class="story-right-column">
+              <section class="panel" aria-labelledby="inspector-heading">
+                <div class="panel-heading">
+                  <div class="section-title">
+                    <svg><use href="#i-cut" /></svg>
+                    <h2 id="inspector-heading">Selected scene</h2>
+                  </div>
+                </div>
+                <p id="story-selection" class="story-selection">
+                  Select a scene to adjust its timing.
+                </p>
+                <form id="story-timing" hidden novalidate>
+                  <div id="story-video-fields" class="story-fields">
+                    <label
+                      >Start in source (seconds)<input
+                        id="story-in"
+                        type="number"
+                        min="0"
+                        step="0.0416666667"
+                        inputmode="decimal" /></label
+                    ><label
+                      >End in source (seconds)<input
+                        id="story-out"
+                        type="number"
+                        min="0"
+                        step="0.0416666667"
+                        inputmode="decimal"
+                    /></label>
+                  </div>
+                  <div id="story-image-fields" hidden>
+                    <label class="story-duration-label"
+                      >Image duration (seconds)<input
+                        id="story-duration"
+                        type="number"
+                        min="0.25"
+                        max="30"
+                        step="0.0416666667"
+                        inputmode="decimal"
+                    /></label>
+                  </div>
+                  <p class="story-small">
+                    Rounded to 24 fps. Minimum 0.25s; image maximum 30s. Changes
+                    apply only to this scene.
+                  </p>
+                  <button
+                    id="story-apply"
+                    class="story-secondary"
+                    type="submit"
+                  >
+                    Apply scene timing
+                  </button>
+                </form>
+              </section>
+              <section
+                class="panel story-export-panel"
+                aria-labelledby="story-export-heading"
+              >
+                <div class="panel-heading">
+                  <div class="section-title">
+                    <svg><use href="#i-download" /></svg>
+                    <h2 id="story-export-heading">One finished MP4</h2>
+                  </div>
+                  <span class="outline-badge">LOCAL EXPORT</span>
+                </div>
+                <p class="story-small">
+                  960 × 540 · 24 fps · H.264 / AAC. Scenes fit inside 16:9 with
+                  black bars when needed. Source audio is kept; silent scenes
+                  stay silent. No captions, image animation or transitions in
+                  this increment.
+                </p>
+                <button id="story-export" class="primary-button" disabled>
+                  <svg><use href="#i-spark" /></svg>Export story
+                </button>
+                <div id="story-progress-region" hidden>
+                  <div class="progress-label">
+                    <span
+                      id="story-progress-label"
+                      role="status"
+                      aria-live="polite"
+                      >Preparing…</span
+                    ><button id="story-cancel">Cancel</button>
+                  </div>
+                  <progress
+                    id="story-progress"
+                    aria-label="Completed export stages"
+                  ></progress>
+                  <p class="story-small">
+                    ~31 MiB engine on first use. Keep Chrome open and your phone
+                    unlocked. Progress advances after each scene.
+                  </p>
+                </div>
+                <div id="story-result" hidden>
+                  <video
+                    id="story-result-video"
+                    controls
+                    playsinline
+                    preload="metadata"
+                    aria-label="Exported story preview"
+                  ></video
+                  ><a
+                    id="story-download"
+                    class="export-button"
+                    download="autocut-story.mp4"
+                    ><svg><use href="#i-download" /></svg>Download story MP4</a
+                  >
+                  <p id="story-result-info" class="story-small"></p>
+                </div>
+              </section>
+            </div>
+          </div>
+          <p class="story-bottom-note">
+            Private by design. Save your download before leaving this page.
+            Story mode does not yet save projects.
+          </p>
+        </section>
       </main>
     </div>
 
@@ -415,5 +716,6 @@
       </p>
     </dialog>
     <script type="module" src="./app.js"></script>
+    <script type="module" src="./story.js"></script>
   </body>
 </html>
