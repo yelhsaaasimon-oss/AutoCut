@@ -15,7 +15,12 @@ import {
   updateScene,
   removeAsset,
 } from "./story-model.js";
-import { readAsset, mediaReady } from "./story-media.js";
+import { readAsset } from "./story-media.js";
+import {
+  preparePreviewVideo,
+  previewPlay,
+  waitForPreview,
+} from "./story-preview.js";
 import { exportStory } from "./story-export.js";
 
 const $ = (id) => document.getElementById(id);
@@ -31,6 +36,7 @@ const state = {
   playing: false,
   time: 0,
   previewToken: 0,
+  previewAbort: null,
   raf: 0,
   epoch: 0,
   epochTime: 0,
@@ -395,6 +401,8 @@ function updateClock() {
 function pausePreview() {
   state.playing = false;
   ++state.previewToken;
+  state.previewAbort?.abort();
+  state.previewAbort = null;
   cancelAnimationFrame(state.raf);
   video.pause();
   $("story-preview-loading").hidden = true;
@@ -404,10 +412,16 @@ async function seek(time, play = false) {
   if (busy()) return;
   const location = locateTime(project, time);
   const token = ++state.previewToken;
+  state.previewAbort?.abort();
+  const controller = new AbortController();
+  state.previewAbort = controller;
+  const { signal } = controller;
   cancelAnimationFrame(state.raf);
   video.pause();
   state.playing = false;
   if (!location) {
+    $("story-preview-loading").hidden = true;
+    state.previewAbort = null;
     video.removeAttribute("src");
     video.load();
     image.removeAttribute("src");
@@ -424,29 +438,34 @@ async function seek(time, play = false) {
   const asset = assetFor(project, location.scene);
   $("story-preview-empty").hidden = true;
   $("story-preview-loading").hidden = false;
+  const timeout = setTimeout(() => {
+    controller.abort(new Error("Preview loading timed out."));
+  }, 15000);
   try {
     if (asset.kind === "video") {
       image.hidden = true;
       video.hidden = false;
-      if (video.getAttribute("src") !== asset.url) {
-        const ready = mediaReady(video, "loadedmetadata");
-        video.src = asset.url;
-        video.load();
-        await ready;
-      }
-      if (token !== state.previewToken) return;
-      video.currentTime =
+      await preparePreviewVideo(
+        video,
+        asset.url,
         location.scene.inFrame / FPS +
-        Math.min(location.local, (durationFrames(location.scene) - 1) / FPS);
-      if (play) await video.play();
+          Math.min(location.local, (durationFrames(location.scene) - 1) / FPS),
+        signal,
+      );
+      if (token !== state.previewToken) return;
+      if (play) await previewPlay(video, signal);
     } else {
       video.hidden = true;
       image.hidden = false;
       if (image.getAttribute("src") !== asset.url) {
-        const ready = mediaReady(image, "load");
         image.src = asset.url;
-        await ready;
       }
+      await waitForPreview(
+        image,
+        () => image.complete && image.naturalWidth > 0,
+        ["load"],
+        signal,
+      );
     }
     if (token !== state.previewToken) return;
     $("story-preview-label").textContent =
@@ -458,10 +477,13 @@ async function seek(time, play = false) {
   } catch (error) {
     if (token === state.previewToken) {
       state.playing = false;
+      video.pause();
       message(`Preview stopped. ${error.message} Tap Play to try again.`, true);
     }
   } finally {
+    clearTimeout(timeout);
     if (token === state.previewToken) {
+      state.previewAbort = null;
       $("story-preview-loading").hidden = true;
       updateClock();
     }

@@ -2,6 +2,10 @@
 
 Tested on **2026-11-12**. This is a working static-browser application, not a simulated processing flow.
 
+## Story trim-preview follow-up
+
+The user reported an Android trim-preview hang after the original acceptance run. See [QA-STORY-PREVIEW.md](./QA-STORY-PREVIEW.md) for the investigation, confirmed lifecycle defects, baseline regression failures, scoped changes and rerun results. `npm run test:story-preview` adds actual decoded-frame checks, rapid trim/selection races, and controlled pending-play/stalled-seek timeout and recovery checks. These pass, as do the existing suites. **The exact physical-phone trim-only hang has not been reproduced or retested here; device-specific resolution remains unverified.** No merge or deployment was performed.
+
 ## Stage 2 — Increment A
 
 See [QA-INCREMENT-A.md](./QA-INCREMENT-A.md) for the full feature-by-feature PASS / FAIL / NOT TESTED report. `npm test` now runs **40 tests**: all 25 original tests plus 15 Story model/export-command tests. `npm run test:story` passes **15 real-browser acceptance groups**, including mixed video/JPG/PNG import, scene edits, sequential native preview, decoded MP4 scene colors, sampled audio placement, downloads, touch viewports, cancellation/retry, empty-state recovery and cold offline mixed export. The Stage 1 suites below have been rerun and still pass. Physical Android hardware and a new production deployment remain NOT TESTED.
