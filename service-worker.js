@@ -1,5 +1,5 @@
 // Bump this version whenever any shipped app or engine file changes.
-const VERSION = "autocut-v1.0.0";
+const VERSION = "autocut-v1.1.0-increment-a.1";
 const ROOT = new URL("./", self.location.href);
 const CACHE = `${VERSION}-${ROOT.pathname}`;
 const SHELL = [
@@ -8,6 +8,11 @@ const SHELL = [
   "./styles.css",
   "./app.js",
   "./editor.js",
+  "./story.css",
+  "./story.js",
+  "./story-model.js",
+  "./story-media.js",
+  "./story-export.js",
   "./manifest.json",
   "./icons/icon.svg",
   "./icons/icon-192.png",
