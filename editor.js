@@ -3,6 +3,7 @@ export const EXAMPLES = [
   "Trim the first 5 seconds",
   "Remove the last 10 seconds",
   "Make the video vertical (9:16)",
+  "Make the video horizontal (16:9)",
   "Make the video square (1:1)",
   "Convert to black and white",
   "Brighten the video",
@@ -80,6 +81,12 @@ export function parseInstructions(text) {
     ) {
       add("aspect", "9:16", "Center-crop to vertical · 9:16");
     } else if (
+      /^(?:(?:make(?: it| the video)?|convert(?: it| the video)? to|crop(?: it| the video)? to) )?(?:horizontal(?: \(?16:9\)?)?|16:9)$/.test(
+        clause,
+      )
+    ) {
+      add("aspect", "16:9", "Center-crop to horizontal · 16:9");
+    } else if (
       /^(?:make(?: it| the video)?|convert(?: it| the video)? to|crop(?: it| the video)? to) (?:square(?: \(?1:1\)?)?|1:1)$/.test(
         clause,
       ) ||
@@ -146,7 +153,12 @@ export function timing(plan, duration) {
     throw new Error(
       `Those trims remove the entire ${duration.toFixed(1)}-second video. Use shorter trim times.`,
     );
-  return { trimmed, outputDuration: trimmed / plan.speed };
+  const outputDuration = trimmed / plan.speed;
+  if (outputDuration > 600)
+    throw new Error(
+      "Quick Edit output is limited to 10 minutes for phone memory. Trim more or use a shorter source; long-form editing is not unlimited.",
+    );
+  return { trimmed, outputDuration };
 }
 
 function tempoFilters(speed) {
@@ -169,6 +181,8 @@ export function buildCommand(
   format = "mp4",
   inputName = "input.mp4",
 ) {
+  if (!["mp4", "mp3"].includes(format))
+    throw new Error("Choose MP4 video or MP3 audio.");
   if (plan.errors.length)
     throw new Error("Fix unsupported instructions before processing.");
   const { trimmed, outputDuration } = timing(plan, duration);
@@ -187,6 +201,10 @@ export function buildCommand(
     vf.push(
       "crop=w='trunc(min(iw,ih*9/16)/2)*2':h='trunc(min(ih,iw*16/9)/2)*2'",
     );
+  if (plan.aspect === "16:9")
+    vf.push(
+      "crop=w='trunc(min(iw,ih*16/9)/2)*2':h='trunc(min(ih,iw*9/16)/2)*2'",
+    );
   if (plan.aspect === "1:1")
     vf.push("crop=w='trunc(min(iw,ih)/2)*2':h='trunc(min(iw,ih)/2)*2'");
   // Do not upscale. Cap the long edge at 1280px to keep phone memory use reasonable.
@@ -199,7 +217,7 @@ export function buildCommand(
   if (plan.speed !== 1) vf.push(`setpts=PTS/${plan.speed}`);
   if (plan.fadeIn) vf.push(`fade=t=in:st=0:d=${fadeDuration}`);
   if (plan.fadeOut) vf.push(`fade=t=out:st=${fadeStart}:d=${fadeDuration}`);
-  const af = ["asetpts=PTS-STARTPTS", ...tempoFilters(plan.speed)];
+  const af = ["aresample=async=1:first_pts=0", ...tempoFilters(plan.speed)];
   if (plan.volume !== 1) af.push(`volume=${plan.volume}`);
   if (plan.fadeIn) af.push(`afade=t=in:st=0:d=${fadeDuration}`);
   if (plan.fadeOut) af.push(`afade=t=out:st=${fadeStart}:d=${fadeDuration}`);

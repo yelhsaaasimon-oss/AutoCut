@@ -130,6 +130,15 @@
             Story project <span>Multiple clips</span>
           </button>
         </div>
+        <p id="app-build" class="build-info">
+          Build v1.2.0-rc.1 · browser-local · save projects before closing tabs
+        </p>
+        <details class="export-diagnostics">
+          <summary>Export diagnostics · on this device only</summary>
+          <pre id="export-diagnostics-text" tabindex="0">
+No export attempted in this session. Build v1.2.0-rc.1. This panel records capabilities, local engine paths and the last export result; it sends nothing.</pre
+          >
+        </details>
         <div id="quick-editor">
           <div class="page-heading">
             <div>
@@ -145,6 +154,20 @@
               <svg><use href="#i-spark" /></svg>100% free. No sign-up.
             </div>
           </div>
+          <section
+            class="project-toolbar"
+            aria-label="Quick Edit project storage"
+          >
+            <button id="quick-save" type="button">Save project locally</button>
+            <button id="quick-load" type="button">Restore saved project</button>
+            <button id="quick-forget" type="button">
+              Forget saved project
+            </button>
+            <p id="quick-project-status" role="status">
+              One local snapshot per workspace, including source media. Save
+              before closing; edits are not autosaved.
+            </p>
+          </section>
           <div class="editor-grid">
             <section
               class="panel source-panel"
@@ -377,7 +400,9 @@
           </div>
           <footer class="main-footer">
             <span>A small tool for your next big idea.</span
-            ><span>AUTOCUT <span class="footer-version">/ v1.0</span></span>
+            ><span
+              >AUTOCUT <span class="footer-version">/ v1.2.0-rc.1</span></span
+            >
           </footer>
           <div class="app-notice" id="app-notice" role="status" hidden></div>
         </div>
@@ -392,13 +417,25 @@
             </div>
             <span class="free-badge">Hard cuts · No uploads</span>
           </div>
+          <section class="project-toolbar" aria-label="Story project storage">
+            <button id="story-save" type="button">Save project locally</button>
+            <button id="story-load" type="button">Restore saved project</button>
+            <button id="story-forget" type="button">
+              Forget saved project
+            </button>
+            <p id="story-project-status" role="status">
+              One local snapshot per workspace, including source media. Save
+              before closing; edits are not autosaved.
+            </p>
+          </section>
           <div class="story-intro">
             <svg><use href="#i-shield" /></svg
             ><span
               >Start small: up to 8 assets, 12 scenes and 2 minutes. Videos ≤75
               MiB; JPG/PNG ≤15 MiB. Project limit:
               <b id="story-byte-limit">100 MiB</b>. High-resolution clips can
-              still exceed phone memory. Nothing is saved after a refresh.</span
+              still exceed phone memory. Use Save project locally before a
+              refresh.</span
             >
           </div>
           <div
@@ -434,6 +471,9 @@
                   >Choose several files · JPG, PNG & readable videos</span
                 >
               </button>
+              <button id="story-import-cancel" type="button" hidden>
+                Cancel import
+              </button>
               <div id="story-assets" class="story-assets">
                 <p class="story-empty">
                   Your footage, maps and illustrations live here. Each import
@@ -455,7 +495,9 @@
                   <span class="step">02</span>
                   <h2 id="story-preview-heading">Preview the sequence</h2>
                 </div>
-                <span class="small-label">16:9 · FIT, NOT CROP</span>
+                <span class="small-label" id="story-fit-label"
+                  >16:9 · FIT, NOT CROP</span
+                >
               </div>
               <div class="story-stage">
                 <div id="story-preview-empty" class="story-empty">
@@ -538,6 +580,13 @@
                 </div>
                 <span class="small-label">HARD CUTS ONLY</span>
               </div>
+              <button id="story-arrange" type="button">
+                Arrange by filename
+              </button>
+              <p class="story-small">
+                Local numeric filename order (clip2 before clip10). Keeps every
+                scene's timing; not AI content analysis.
+              </p>
               <ol id="story-scenes" class="story-scenes">
                 <li class="story-empty">
                   No scenes yet. Import your first asset above.
@@ -614,11 +663,19 @@
                   <span class="outline-badge">LOCAL EXPORT</span>
                 </div>
                 <p class="story-small">
-                  960 × 540 · 24 fps · H.264 / AAC. Scenes fit inside 16:9 with
+                  <span id="story-output-size">960 × 540 · 16:9</span> · 24 fps
+                  · H.264 / AAC. Scenes fit inside the selected format with
                   black bars when needed. Source audio is kept; silent scenes
                   stay silent. No captions, image animation or transitions in
                   this increment.
                 </p>
+                <label class="story-small" for="story-format"
+                  >Story format</label
+                >
+                <select id="story-format">
+                  <option value="16:9">Horizontal 16:9 · 960 × 540</option>
+                  <option value="9:16">Vertical 9:16 · 540 × 960</option>
+                </select>
                 <p
                   id="story-export-summary"
                   class="story-small"
@@ -653,10 +710,7 @@
                     preload="metadata"
                     aria-label="Exported story preview"
                   ></video
-                  ><a
-                    id="story-download"
-                    class="export-button"
-                    download="autocut-story.mp4"
+                  ><a id="story-download" class="export-button"
                     ><svg><use href="#i-download" /></svg>Download story MP4</a
                   >
                   <p id="story-result-info" class="story-small"></p>
@@ -665,8 +719,9 @@
             </div>
           </div>
           <p class="story-bottom-note">
-            Private by design. Save your download before leaving this page.
-            Story mode does not yet save projects.
+            Private by design. Save your download before leaving this page. Save
+            project locally keeps sources and scene edits in this browser. Later
+            edits are not autosaved; exported MP4s must be downloaded.
           </p>
         </section>
       </main>

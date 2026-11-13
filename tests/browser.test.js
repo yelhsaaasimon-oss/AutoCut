@@ -249,7 +249,10 @@ try {
   );
   const downloadEvent = page.waitForEvent("download");
   await page.locator("#download-button").click();
-  assert.match((await downloadEvent).suggestedFilename(), /-autocut.mp4$/);
+  assert.match(
+    (await downloadEvent).suggestedFilename(),
+    /-autocut-\d+p\d{2}s-\d{8}-\d{6}-\d{3}\.mp4$/,
+  );
   console.log(
     "PASS: composed edits produced downloadable H.264/AAC MP4, center-cropped and sped up to expected duration.",
   );

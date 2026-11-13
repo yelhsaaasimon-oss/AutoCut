@@ -75,6 +75,7 @@
   min-width: 0;
 }
 .story-small {
+  overflow-wrap: anywhere;
   font-size: 11px;
   line-height: 1.8;
   color: #9bad8e;
@@ -521,4 +522,73 @@
   .story-scene-select strong {
     font-size: 11px;
   }
+}
+
+/* Shared, real local-project controls; wrap instead of overflowing phone widths. */
+.project-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 20px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.project-toolbar button,
+#story-arrange,
+#story-import-cancel {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.project-toolbar p {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.build-info {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+#story-format {
+  width: 100%;
+  min-height: 44px;
+  margin: 6px 0 12px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.export-diagnostics {
+  margin: 0 0 18px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.export-diagnostics summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 10px 0;
+}
+.export-diagnostics pre {
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  background: var(--panel-inner);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+#app-notice {
+  overflow-wrap: anywhere;
 }

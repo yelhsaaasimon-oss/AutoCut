@@ -489,7 +489,10 @@ try {
   const download = await downloadEvent;
   await download.saveAs(".arena/story-downloaded.mp4");
   assert.equal(await download.failure(), null);
-  assert.equal(download.suggestedFilename(), "autocut-story.mp4");
+  assert.match(
+    download.suggestedFilename(),
+    /^autocut-story-5p00s-\d{8}-\d{6}-\d{3}\.mp4$/,
+  );
   assert.equal(
     createHash("sha256")
       .update(await readFile(".arena/story-downloaded.mp4"))

@@ -1,13 +1,17 @@
 // Bump this version whenever any shipped app or engine file changes.
-const VERSION = "autocut-v1.1.0-increment-a.3";
+const VERSION = "autocut-v1.2.0-rc.1";
 const ROOT = new URL("./", self.location.href);
 const CACHE = `${VERSION}-${ROOT.pathname}`;
+// Core bytes are unchanged; do not discard the 31 MiB engine on shell updates.
+const ENGINE_CACHE = `autocut-engine-0.12.10-${ROOT.pathname}`;
 const SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./editor.js",
+  "./media-engine.js",
+  "./project-store.js",
   "./story.css",
   "./story.js",
   "./story-model.js",
@@ -48,13 +52,33 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
+      const wasm = new URL("./vendor/core/ffmpeg-core.wasm", ROOT).href;
+      const engineCache = await caches.open(ENGINE_CACHE);
+      if (!(await engineCache.match(wasm))) {
+        for (const key of keys.filter(
+          (key) =>
+            key.startsWith("autocut-v1.1.0-increment-a.") &&
+            key.endsWith(`-${ROOT.pathname}`),
+        )) {
+          const previous = await (await caches.open(key)).match(wasm);
+          if (previous) {
+            try {
+              await engineCache.put(wasm, previous);
+            } catch {
+              /* Storage may be full; online use remains available. */
+            }
+            break;
+          }
+        }
+      }
       await Promise.all(
         keys
           .filter(
             (key) =>
               key.startsWith("autocut-") &&
               key.endsWith(`-${ROOT.pathname}`) &&
-              key !== CACHE,
+              key !== CACHE &&
+              key !== ENGINE_CACHE,
           )
           .map((key) => caches.delete(key)),
       );
@@ -74,11 +98,17 @@ self.addEventListener("fetch", (event) => {
   if (!navigation && !ALLOWED.has(request.url)) return;
   let cacheCopy = null;
   const responsePromise = (async () => {
-    const cache = await caches.open(CACHE);
-    const cached = await cache.match(
-      navigation ? new URL("./index.html", ROOT).href : request,
-    );
-    if (cached) return cached;
+    try {
+      const cache = await caches.open(
+        request.url.endsWith("/ffmpeg-core.wasm") ? ENGINE_CACHE : CACHE,
+      );
+      const cached = await cache.match(
+        navigation ? new URL("./index.html", ROOT).href : request,
+      );
+      if (cached) return cached;
+    } catch {
+      /* Storage denial must not break online editing. */
+    }
     try {
       const response = await fetch(request);
       if (response.ok && ALLOWED.has(request.url)) cacheCopy = response.clone();
@@ -92,7 +122,9 @@ self.addEventListener("fetch", (event) => {
     responsePromise.then(async () => {
       if (!cacheCopy) return;
       try {
-        const cache = await caches.open(CACHE);
+        const cache = await caches.open(
+          request.url.endsWith("/ffmpeg-core.wasm") ? ENGINE_CACHE : CACHE,
+        );
         await cache.put(request, cacheCopy);
         if (request.url.endsWith("/ffmpeg-core.wasm")) {
           const clients = await self.clients.matchAll();

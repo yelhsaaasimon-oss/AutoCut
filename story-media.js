@@ -1,6 +1,6 @@
 import { OUTPUT, LIMITS, MIN_FRAMES, FPS } from "./story-model.js";
 
-export function mediaReady(element, event, timeout = 15000) {
+export function mediaReady(element, event, timeout = 15000, signal) {
   return new Promise((resolve, reject) => {
     const done = () => {
       cleanup();
@@ -14,14 +14,21 @@ export function mediaReady(element, event, timeout = 15000) {
         ),
       );
     };
+    const abort = () => {
+      cleanup();
+      reject(new DOMException("Import cancelled", "AbortError"));
+    };
     const timer = setTimeout(fail, timeout);
     const cleanup = () => {
       clearTimeout(timer);
       element.removeEventListener(event, done);
       element.removeEventListener("error", fail);
+      signal?.removeEventListener("abort", abort);
     };
     element.addEventListener(event, done, { once: true });
     element.addEventListener("error", fail, { once: true });
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
   });
 }
 function thumbnail(media, width, height) {
@@ -41,7 +48,8 @@ function thumbnail(media, width, height) {
   );
   return canvas.toDataURL("image/jpeg", 0.65);
 }
-export async function readAsset(file) {
+export async function readAsset(file, { signal } = {}) {
+  signal?.throwIfAborted();
   if (!file.size) throw new Error("This file is empty.");
   const image =
     /\.(jpe?g|png)$/i.test(file.name) ||
@@ -64,7 +72,7 @@ export async function readAsset(file) {
   try {
     if (image) {
       media = new Image();
-      const ready = mediaReady(media, "load");
+      const ready = mediaReady(media, "load", 15000, signal);
       media.src = url;
       await ready;
       const width = media.naturalWidth,
@@ -74,7 +82,11 @@ export async function readAsset(file) {
           "Choose an image under 20 megapixels to reduce phone memory use.",
         );
       const thumb = thumbnail(media, width, height);
-      const scale = Math.min(1, OUTPUT.width / width, OUTPUT.height / height);
+      const scale = Math.min(
+        1,
+        Math.max(OUTPUT.width, OUTPUT.height) / width,
+        Math.max(OUTPUT.width, OUTPUT.height) / height,
+      );
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(2, Math.round(width * scale));
       canvas.height = Math.max(2, Math.round(height * scale));
@@ -89,6 +101,7 @@ export async function readAsset(file) {
         throw new Error(
           "This image could not be prepared. Try a smaller JPG or PNG.",
         );
+      signal?.throwIfAborted();
       URL.revokeObjectURL(url);
       return {
         name: file.name,
@@ -106,7 +119,7 @@ export async function readAsset(file) {
     media.preload = "auto";
     media.muted = true;
     media.playsInline = true;
-    const metadata = mediaReady(media, "loadedmetadata");
+    const metadata = mediaReady(media, "loadedmetadata", 15000, signal);
     media.src = url;
     await metadata;
     const duration = media.duration,
@@ -123,7 +136,8 @@ export async function readAsset(file) {
       throw new Error(
         "Choose a source video no longer than 120 seconds for Story mode. Stage 1 remains available for trimming larger sources.",
       );
-    if (media.readyState < 2) await mediaReady(media, "loadeddata");
+    if (media.readyState < 2)
+      await mediaReady(media, "loadeddata", 15000, signal);
     const thumb = thumbnail(media, width, height);
     return {
       name: file.name,

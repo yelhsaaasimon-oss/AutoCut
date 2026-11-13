@@ -6,6 +6,10 @@ export const OUTPUT = Object.freeze({
   fps: FPS,
   sampleRate: 48000,
 });
+export const FORMATS = Object.freeze({
+  "16:9": Object.freeze({ width: 960, height: 540 }),
+  "9:16": Object.freeze({ width: 540, height: 960 }),
+});
 export const LIMITS = Object.freeze({
   assets: 8,
   scenes: 12,
@@ -18,7 +22,13 @@ export const MIN_FRAMES = 6; // 0.25 second, including after a video trim.
 let nextId = 0;
 const id = (prefix) => `${prefix}-${++nextId}`;
 export function createProject() {
-  return { assets: [], scenes: [], selectedId: null, revision: 0 };
+  return {
+    assets: [],
+    scenes: [],
+    selectedId: null,
+    revision: 0,
+    format: "16:9",
+  };
 }
 export function assetFor(project, scene) {
   return project.assets.find((asset) => asset.id === scene.assetId);
@@ -100,12 +110,15 @@ export function importAsset(project, details, byteLimit = LIMITS.bytes) {
   project.assets.push(asset);
   return addScene(project, asset.id);
 }
-export function addScene(project, assetId) {
+export function addScene(project, assetId, range) {
   const asset = project.assets.find((item) => item.id === assetId);
   if (!asset) throw new Error("That asset is no longer available.");
   const frames = asset.kind === "image" ? 3 * FPS : asset.frames;
-  validateAddition(project, frames);
-  const scene = { id: id("scene"), assetId, inFrame: 0, outFrame: frames };
+  const inFrame = range?.inFrame ?? 0,
+    outFrame = range?.outFrame ?? frames;
+  validateRange(asset, inFrame, outFrame);
+  validateAddition(project, outFrame - inFrame);
+  const scene = { id: id("scene"), assetId, inFrame, outFrame };
   project.scenes.push(scene);
   project.selectedId = scene.id;
   project.revision++;
@@ -173,5 +186,74 @@ export function removeAsset(project, assetId) {
   if (index >= 0) {
     project.assets.splice(index, 1);
     project.revision++;
+  }
+}
+
+function validateRange(asset, start, end) {
+  if (
+    !Number.isInteger(start) ||
+    !Number.isInteger(end) ||
+    start < 0 ||
+    end - start < MIN_FRAMES ||
+    (asset.kind === "video" && end > asset.frames) ||
+    (asset.kind === "image" && (start !== 0 || end > 30 * FPS))
+  ) {
+    throw new Error(
+      "Invalid saved scene timing. Choose a range within the source, at least 0.25 seconds long.",
+    );
+  }
+}
+export function setProjectFormat(project, format) {
+  if (!Object.hasOwn(FORMATS, format)) throw new Error("Choose 16:9 or 9:16.");
+  if (project.format !== format) {
+    project.format = format;
+    project.revision++;
+  }
+}
+export function arrangeScenes(project) {
+  const sorted = [...project.scenes].sort((a, b) =>
+    assetFor(project, a).name.localeCompare(assetFor(project, b).name, "en", {
+      numeric: true,
+      sensitivity: "base",
+    }),
+  );
+  if (sorted.some((scene, index) => scene !== project.scenes[index])) {
+    project.scenes = sorted;
+    project.revision++;
+  }
+}
+export function validateProject(project, byteLimit = LIMITS.bytes) {
+  if (
+    !Object.hasOwn(FORMATS, project.format || "16:9") ||
+    project.assets.length > LIMITS.assets ||
+    project.scenes.length > LIMITS.scenes ||
+    totalFrames(project) > LIMITS.frames
+  )
+    throw new Error(
+      "This project exceeds the supported format, scene or duration limits.",
+    );
+  if (
+    new Set(project.assets.map((a) => a.id)).size !== project.assets.length ||
+    new Set(project.scenes.map((s) => s.id)).size !== project.scenes.length
+  )
+    throw new Error("The project contains duplicate identifiers.");
+  let bytes = 0;
+  for (const asset of project.assets) {
+    if (
+      !["image", "video"].includes(asset.kind) ||
+      !Number.isFinite(asset.size) ||
+      asset.size <= 0
+    )
+      throw new Error("Invalid project asset.");
+    if (!Number.isInteger(asset.frames) || asset.frames < MIN_FRAMES)
+      throw new Error("An asset has unreadable source timing.");
+    bytes += asset.size;
+  }
+  if (bytes > byteLimit)
+    throw new Error("The project exceeds this device's media size limit.");
+  for (const scene of project.scenes) {
+    const asset = assetFor(project, scene);
+    if (!asset) throw new Error("A scene is missing its source asset.");
+    validateRange(asset, scene.inFrame, scene.outFrame);
   }
 }

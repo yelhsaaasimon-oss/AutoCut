@@ -12,6 +12,9 @@ const mime = {
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".mp4": "video/mp4",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webm": "video/webm",
   ".md": "text/plain",
 };
 http
@@ -22,6 +25,16 @@ http
       const route =
         decodeURIComponent(url.pathname).replace(/^\/AutoCut(?=\/|$)/, "") ||
         "/";
+      // Preview/public LAN access must never expose Git metadata, ignored
+      // local test artifacts or dependencies. This server is static-only.
+      if (
+        route
+          .split("/")
+          .some((part) => part.startsWith(".") || part === "node_modules")
+      ) {
+        res.writeHead(403).end("Forbidden");
+        return;
+      }
       let path = resolve(root, "." + route);
       if (path !== root && !path.startsWith(root + sep)) {
         res.writeHead(403).end();

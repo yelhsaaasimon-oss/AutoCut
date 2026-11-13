@@ -1,14 +1,25 @@
-import { FFmpeg } from "./vendor/ffmpeg/index.js";
+import {
+  createMediaEngine,
+  mediaErrorMessage,
+  MediaError,
+  verifyMediaDecode,
+  exportDiagnostics,
+} from "./media-engine.js";
 import {
   FPS,
   OUTPUT,
+  FORMATS,
+  validateProject,
   assetFor,
   durationFrames,
   totalFrames,
 } from "./story-model.js";
 
 const MAX_TEMP_BYTES = 80 * 1024 * 1024;
-export function sceneCommand(scene, asset, hasAudio, index) {
+export function sceneCommand(scene, asset, hasAudio, index, format = "16:9") {
+  const geometry = FORMATS[format];
+  if (!Object.hasOwn(FORMATS, format))
+    throw new MediaError("Choose a supported Story format.");
   const seconds = durationFrames(scene) / FPS;
   const frames = durationFrames(scene);
   const input = `input-${index}.${asset.kind === "image" ? "png" : "video"}`;
@@ -25,7 +36,7 @@ export function sceneCommand(scene, asset, hasAudio, index) {
       input,
     );
   if (!hasAudio) args.push("-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo");
-  const vf = `setpts=PTS-STARTPTS,fps=${FPS},scale=${OUTPUT.width}:${OUTPUT.height}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=${OUTPUT.width}:${OUTPUT.height}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=${seconds}`;
+  const vf = `setpts=PTS-STARTPTS,fps=${FPS},scale=${geometry.width}:${geometry.height}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=${geometry.width}:${geometry.height}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=${seconds}`;
   args.push(
     "-map",
     "0:v:0",
@@ -114,11 +125,11 @@ export function joinCommand(sceneCount, frames) {
   ];
 }
 
-class StoryTimingError extends Error {}
+class StoryTimingError extends MediaError {}
 
 // Verify the actual joined file, not just the duration printed by the UI.
 // Never offer an original-length/partial render as a successful trimmed export.
-export function verifyStoryOutput(metadata, frames) {
+export function verifyStoryOutput(metadata, frames, format) {
   const video = metadata.streams?.find(
     (stream) => stream.codec_type === "video",
   );
@@ -134,7 +145,16 @@ export function verifyStoryOutput(metadata, frames) {
     !audio ||
     Number(video.nb_frames) !== frames ||
     !matchesDuration(video.duration) ||
-    !matchesDuration(metadata.format?.duration)
+    !matchesDuration(metadata.format?.duration) ||
+    (format &&
+      (!Object.hasOwn(FORMATS, format) ||
+        video?.width !== FORMATS[format]?.width ||
+        video?.height !== FORMATS[format]?.height ||
+        video?.codec_name !== "h264" ||
+        video?.r_frame_rate !== "24/1" ||
+        audio?.codec_name !== "aac" ||
+        Number(audio?.sample_rate) !== 48000 ||
+        audio?.channels !== 2))
   ) {
     throw new StoryTimingError(
       `Export timing verification failed. Expected ${expected.toFixed(2)} seconds (${frames} frames). No download was created; try exporting again.`,
@@ -147,9 +167,14 @@ export async function exportStory(
   { signal, onStatus = () => {}, onEngine = () => {} } = {},
 ) {
   if (!project.scenes.length) throw new Error("Add a scene before exporting.");
-  const ff = new FFmpeg();
+  validateProject(project);
+  for (const asset of project.assets)
+    if (typeof asset.file?.arrayBuffer !== "function")
+      throw new MediaError(
+        "A source file is missing. Restore your saved project or import the source again.",
+      );
+  const ff = createMediaEngine({ signal });
   let logs = [];
-  let loadTimer;
   const abort = () => ff.terminate();
   const assertActive = () => {
     if (signal?.aborted)
@@ -164,20 +189,17 @@ export async function exportStory(
   try {
     assertActive();
     onStatus({ label: "Starting the editing engine…", completed: null });
-    loadTimer = setTimeout(abort, 120000);
     try {
       await ff.load({
         coreURL: new URL("./vendor/core/ffmpeg-core.js", import.meta.url).href,
         wasmURL: new URL("./vendor/core/ffmpeg-core.wasm", import.meta.url)
           .href,
       });
-    } catch {
+    } catch (error) {
       assertActive();
-      throw new Error(
-        "The editing engine could not start. Connect to the internet for its first download, reload, and try again.",
+      throw new MediaError(
+        `The editing engine could not start. Check the local worker/core files, connect once if the engine is not cached, and retry. ${mediaErrorMessage(error)}`,
       );
-    } finally {
-      clearTimeout(loadTimer);
     }
     let temporaryBytes = 0;
     for (let index = 0; index < project.scenes.length; index++) {
@@ -223,7 +245,13 @@ export async function exportStory(
         );
         await ff.deleteFile("probe.json");
       }
-      const command = sceneCommand(scene, asset, hasAudio, index);
+      const command = sceneCommand(
+        scene,
+        asset,
+        hasAudio,
+        index,
+        project.format || "16:9",
+      );
       onStatus({
         label: `Rendering scene ${index + 1} of ${project.scenes.length}…`,
         completed: index,
@@ -277,11 +305,15 @@ export async function exportStory(
       throw new Error(
         "The scenes could not be joined. Try fewer or shorter scenes.",
       );
+    onStatus({
+      label: "Verifying MP4 duration, tracks and full-file decode…",
+      completed: project.scenes.length,
+    });
     await ff.ffprobe([
       "-v",
       "error",
       "-show_entries",
-      "format=duration:stream=codec_type,duration,nb_frames",
+      "format=duration:stream=codec_type,codec_name,duration,nb_frames,width,height,r_frame_rate,sample_rate,channels",
       "-of",
       "json",
       "story.mp4",
@@ -289,11 +321,16 @@ export async function exportStory(
       "probe.json",
     ]);
     assertActive();
+    const verifiedMetadata = JSON.parse(
+      await ff.readFile("probe.json", "utf8"),
+    );
     verifyStoryOutput(
-      JSON.parse(await ff.readFile("probe.json", "utf8")),
+      verifiedMetadata,
       totalFrames(project),
+      project.format || "16:9",
     );
     await ff.deleteFile("probe.json");
+    await verifyMediaDecode(ff, "story.mp4");
     // Drop all intermediates before copying the final file out of WASM.
     for (let index = 0; index < project.scenes.length; index++) {
       await ff.deleteFile(`scene-${index}.mp4`);
@@ -306,21 +343,15 @@ export async function exportStory(
       label: "Your story is ready",
       completed: project.scenes.length + 1,
     });
+    exportDiagnostics("Story", "Verified and ready", {
+      expectedDuration: totalFrames(project) / FPS,
+      metadata: verifiedMetadata,
+    });
     return new Blob([data], { type: "video/mp4" });
   } catch (error) {
     assertActive();
-    if (error instanceof StoryTimingError) throw error;
-    if (
-      /memory|allocation|out of bounds|unreachable|Aborted|FS error/i.test(
-        `${error} ${logs.join(" ")}`,
-      )
-    )
-      throw new Error(
-        "Your phone ran out of editing memory or could not decode a scene. Close other tabs and use fewer, shorter, lower-resolution clips. Original files are unchanged.",
-      );
-    throw error;
+    throw new MediaError(mediaErrorMessage(error, logs));
   } finally {
-    clearTimeout(loadTimer);
     signal?.removeEventListener("abort", abort);
     ff.terminate();
   }

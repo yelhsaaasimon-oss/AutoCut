@@ -1,4 +1,15 @@
-import { FFmpeg } from "./vendor/ffmpeg/index.js";
+import {
+  createMediaEngine,
+  MediaError,
+  mediaErrorMessage,
+  probeMedia,
+  verifyMediaDecode,
+  verifyQuickOutput,
+  exportDiagnostics,
+  keepScreenAwake,
+  exportFileName,
+} from "./media-engine.js";
+import { projectStore } from "./project-store.js";
 import { EXAMPLES, parseInstructions, buildCommand } from "./editor.js";
 
 const $ = (id) => document.getElementById(id);
@@ -100,12 +111,16 @@ function renderPlan() {
 }
 function setBusy(busy) {
   state.busy = busy;
+  if (busy) $("preview-video").pause();
   [
     "video-input",
     "dropzone",
     "replace-button",
     "instructions",
     "export-format",
+    "quick-save",
+    "quick-load",
+    "quick-forget",
   ].forEach((id) => ($(id).disabled = busy));
   document
     .querySelectorAll("[data-command], #command-list button")
@@ -114,6 +129,8 @@ function setBusy(busy) {
     ? "Making your cut…"
     : "Make the cut";
   $("progress-region").hidden = !busy;
+  $("original-tab").disabled = busy || !state.file;
+  $("edited-tab").disabled = busy || !state.outputURL;
   renderPlan();
 }
 function updateProgress(value, status) {
@@ -144,8 +161,8 @@ function showPreview(edited) {
     : "Original video";
   $("preview-dot").classList.add("ready");
 }
-async function selectFile(file) {
-  if (!file || state.busy) return;
+async function selectFile(file, restoring = false) {
+  if (!file || (state.busy && !restoring)) return;
   notice("");
   showErrors([]);
   if (!file.size) {
@@ -167,6 +184,7 @@ async function selectFile(file) {
     );
     return;
   }
+  quickDirty();
   clearOutput();
   const video = $("preview-video");
   video.pause();
@@ -187,6 +205,89 @@ async function selectFile(file) {
   showPreview(false);
   renderPlan();
 }
+function quickDirty() {
+  $("quick-project-status").textContent =
+    "Current edits are not autosaved. Save project locally before closing.";
+}
+async function quickProject(action) {
+  if (state.busy) return;
+  if (action === "save" && !state.file) {
+    notice("Import a video before saving a project.");
+    return;
+  }
+  const operation = ++state.operation;
+  setBusy(true);
+  $("cancel-button").disabled = true;
+  $("progress-status").textContent =
+    `${action === "load" ? "Restoring" : action === "save" ? "Saving" : "Removing"} local project…`;
+  $("progress-detail").textContent =
+    "Browser storage only. No media is uploaded.";
+  try {
+    const saved = await projectStore(
+      action,
+      "quick",
+      action === "save"
+        ? {
+            file: state.file,
+            name: state.file.name,
+            instructions: $("instructions").value,
+            format: $("export-format").value,
+          }
+        : undefined,
+    );
+    if (operation !== state.operation) return;
+    if (action === "load") {
+      if (!saved)
+        throw new Error(
+          "No Quick Edit project has been saved on this browser origin yet.",
+        );
+      if (
+        saved.version !== 1 ||
+        !(saved.file instanceof Blob) ||
+        !saved.file.size ||
+        saved.file.size > maxSize ||
+        typeof saved.instructions !== "string" ||
+        saved.instructions.length > 2000 ||
+        !["mp4", "mp3"].includes(saved.format) ||
+        typeof saved.name !== "string" ||
+        !(
+          saved.file.type.startsWith("video/") ||
+          /\.(mp4|mov|m4v|mkv|avi|webm|3gp|mpeg|mpg|mts|m2ts)$/i.test(
+            saved.name,
+          )
+        )
+      )
+        throw new Error(
+          "The saved Quick Edit project is invalid or exceeds this device's limits. Current work was not replaced.",
+        );
+      await selectFile(
+        new File([saved.file], saved.name || "restored.mp4", {
+          type: saved.file.type,
+        }),
+        true,
+      );
+      $("instructions").value = saved.instructions;
+      $("export-format").value = saved.format;
+      $("export-format").dispatchEvent(new Event("change"));
+      renderPlan();
+    }
+    $("quick-project-status").textContent =
+      action === "delete"
+        ? "Saved Quick Edit snapshot removed. Current work and original files are unchanged."
+        : `${action === "load" ? "Restored" : "Saved"} Quick Edit project locally. Later changes require Save again; exports are not saved.`;
+  } catch (error) {
+    $("quick-project-status").textContent =
+      error.message || "Local project storage failed.";
+  } finally {
+    if (operation === state.operation) {
+      $("cancel-button").disabled = false;
+      setBusy(false);
+    }
+  }
+}
+$("quick-save").addEventListener("click", () => quickProject("save"));
+$("quick-load").addEventListener("click", () => quickProject("load"));
+$("quick-forget").addEventListener("click", () => quickProject("delete"));
 $("video-input").addEventListener("change", (event) => {
   selectFile(event.target.files[0]);
   event.target.value = "";
@@ -237,11 +338,13 @@ $("preview-video").addEventListener("error", () => {
 $("original-tab").addEventListener("click", () => showPreview(false));
 $("edited-tab").addEventListener("click", () => showPreview(true));
 $("instructions").addEventListener("input", () => {
+  quickDirty();
   invalidateOutput();
   renderPlan();
 });
 function appendCommand(command) {
   if (state.busy) return;
+  quickDirty();
   const current = $("instructions")
     .value.trim()
     .replace(/[,;.]+$/, "");
@@ -261,6 +364,7 @@ $("suggestions").addEventListener("click", (event) => {
   if (button) appendCommand(button.dataset.command);
 });
 $("export-format").addEventListener("change", () => {
+  quickDirty();
   invalidateOutput();
   const audio = $("export-format").value === "mp3";
   $("format-detail").textContent = audio
@@ -277,7 +381,7 @@ $("export-format").addEventListener("change", () => {
 
 async function loadEngine(operation) {
   if (state.engine?.loaded) return state.engine;
-  const engine = new FFmpeg();
+  const engine = createMediaEngine();
   state.engine = engine;
   state.logs = [];
   engine.on("log", ({ message }) => {
@@ -297,22 +401,15 @@ async function loadEngine(operation) {
   $("progress-detail").textContent =
     "First use downloads ~31 MB. Keep this tab open. Later visits can use the offline cache.";
   $("engine-status").textContent = "Downloading & starting FFmpeg…";
-  const timer = setTimeout(() => {
-    if (operation === state.operation && !engine.loaded) engine.terminate();
-  }, 120000);
   try {
-    await engine.load({
-      coreURL: new URL("./vendor/core/ffmpeg-core.js", import.meta.url).href,
-      wasmURL: new URL("./vendor/core/ffmpeg-core.wasm", import.meta.url).href,
-    });
+    await engine.load();
   } catch (error) {
+    if (error instanceof MediaError) throw error;
     if (operation === state.operation)
-      throw new Error(
-        "The editing engine could not start. Check your connection, reload AutoCut, and try a short clip in an updated Android Chrome.",
+      throw new MediaError(
+        `The editing engine could not start. Check your connection and that the local worker, core and WASM files are present, reload, and retry in Android Chrome. ${mediaErrorMessage(error)}`,
       );
     throw error;
-  } finally {
-    clearTimeout(timer);
   }
   $("engine-status").textContent =
     "FFmpeg ready · private, on-device processing";
@@ -320,22 +417,7 @@ async function loadEngine(operation) {
   return engine;
 }
 function friendlyError(error) {
-  const detail = `${error} ${state.logs.join(" ")}`;
-  if (
-    /memory|allocation|out of bounds|unreachable|Aborted|FS error/i.test(detail)
-  )
-    return "Your device ran out of editing memory, or this file could not be decoded. Close other tabs and try a shorter, lower-resolution MP4. Your original video is safe.";
-  if (/matches no streams|does not contain any stream/i.test(detail))
-    return "This file has no usable audio or video track for the selected export. For MP3, choose a video with audio. For silent footage, choose MP4.";
-  if (
-    /Invalid data|Decoder.*not found|Error while decoding|moov atom/i.test(
-      detail,
-    )
-  )
-    return "This format or codec could not be decoded. Try an H.264 MP4 video that plays correctly on your phone.";
-  return error instanceof Error
-    ? error.message
-    : "Processing failed. Try a shorter H.264 MP4 clip and check that your phone has free memory.";
+  return mediaErrorMessage(error, state.logs);
 }
 $("process-button").addEventListener("click", async () => {
   if (state.busy || !state.file) return;
@@ -363,13 +445,14 @@ $("process-button").addEventListener("click", async () => {
   state.progress = 0;
   state.outputDuration = 0;
   setBusy(true);
+  exportDiagnostics("Quick Edit", "Starting local export");
   try {
-    try {
-      if ("wakeLock" in navigator)
-        state.wakeLock = await navigator.wakeLock.request("screen");
-    } catch {
-      /* Optional enhancement. */
-    }
+    keepScreenAwake(
+      () => operation === state.operation && state.busy,
+      (lock) => {
+        state.wakeLock = lock;
+      },
+    );
     if (operation !== state.operation) return;
     engine = await loadEngine(operation);
     if (operation !== state.operation) return;
@@ -424,13 +507,27 @@ $("process-button").addEventListener("click", async () => {
       );
     const command = buildCommand(plan, duration, format, inputName);
     state.outputDuration = command.outputDuration;
+    exportDiagnostics("Quick Edit", "Encoding", {
+      expectedDuration: command.outputDuration,
+    });
     updateProgress(12, "Applying your edits…");
     const result = await engine.exec(command.args);
     if (result !== 0)
       throw new Error(
         "Processing failed. Try a shorter H.264 MP4 video, or close other tabs to free memory.",
       );
-    updateProgress(99, "Preparing your download…");
+    await engine.deleteFile(inputName);
+    await engine.deleteFile("probe.json");
+    updateProgress(99, "Verifying the generated file…");
+    const actual = await probeMedia(engine, `output.${format}`);
+    verifyQuickOutput(
+      actual,
+      command.outputDuration,
+      format,
+      plan.volume !== 0 &&
+        metadata.streams.some((stream) => stream.codec_type === "audio"),
+    );
+    await verifyMediaDecode(engine, `output.${format}`);
     const data = await engine.readFile(`output.${format}`);
     if (!data.byteLength)
       throw new Error(
@@ -445,19 +542,31 @@ $("process-button").addEventListener("click", async () => {
     $("edited-tab").disabled = false;
     const download = $("download-button");
     download.href = state.outputURL;
-    download.download = `${state.file.name.replace(/\.[^.]+$/, "")}-autocut.${format}`;
+    download.download = exportFileName(
+      `${state.file.name.replace(/\.[^.]+$/, "")}-autocut`,
+      command.outputDuration,
+      format,
+    );
     download.classList.remove("disabled");
     download.setAttribute("aria-disabled", "false");
     $("export-note").textContent =
       `Ready · ${(blob.size / MB).toFixed(1)} MB · ${seconds(command.outputDuration)} · No watermark`;
     showPreview(true);
     success = true;
+    exportDiagnostics("Quick Edit", "Verified and ready", {
+      expectedDuration: command.outputDuration,
+      metadata: actual,
+    });
     notice(
       "Your cut is ready. Preview it, then tap Export to save it to your device.",
     );
   } catch (error) {
     if (operation === state.operation) {
       failureMessage = friendlyError(error);
+      exportDiagnostics("Quick Edit", "Export failed", {
+        expectedDuration: state.outputDuration,
+        error: failureMessage,
+      });
       notice("Your original video has not been changed.");
     }
   } finally {
@@ -467,7 +576,7 @@ $("process-button").addEventListener("click", async () => {
       state.engine?.terminate();
       state.engine = null;
       if (state.wakeLock) {
-        await state.wakeLock.release().catch(() => {});
+        state.wakeLock.release().catch(() => {});
         state.wakeLock = null;
       }
       setBusy(false);
@@ -485,6 +594,7 @@ $("cancel-button").addEventListener("click", () => {
   state.wakeLock?.release().catch(() => {});
   state.wakeLock = null;
   setBusy(false);
+  exportDiagnostics("Quick Edit", "Cancelled; worker released");
   $("engine-status").textContent = "Cancelled · ready when you are";
   $("engine-dot").classList.remove("ready");
   notice("Editing cancelled. Your original video is unchanged.");
@@ -493,7 +603,7 @@ $("download-button").addEventListener("click", (event) => {
   if (!state.outputURL) event.preventDefault();
   else
     notice(
-      "Download started. On Android, find your file in Chrome → ⋮ → Downloads. Save it before leaving this page.",
+      `Download started: ${$("download-button").download}. Find this NEW file in Chrome → ⋮ → Downloads; older exports may still be there.`,
     );
 });
 window.addEventListener("beforeunload", (event) => {
@@ -560,6 +670,17 @@ window.addEventListener("appinstalled", () => {
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
     .register(new URL("./service-worker.js", import.meta.url))
+    .then((registration) => {
+      const updateNotice = () => {
+        if (registration.waiting)
+          $("app-build").textContent =
+            "An AutoCut update is ready. Save projects, close ALL AutoCut tabs, then reopen to activate it.";
+      };
+      updateNotice();
+      registration.addEventListener("updatefound", () =>
+        registration.installing?.addEventListener("statechange", updateNotice),
+      );
+    })
     .catch(() =>
       notice(
         "Offline caching is unavailable in this browser session. You can still edit while online.",

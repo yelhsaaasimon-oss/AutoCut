@@ -224,7 +224,9 @@ try {
     const response = await page.goto(base);
     assert.equal(response.status(), 200);
     await page.waitForFunction(
-      () => document.querySelector("#command-list").children.length === 11,
+      (expected) =>
+        document.querySelector("#command-list").children.length === expected,
+      EXAMPLES.length,
     );
     await page.waitForFunction(() => !!navigator.serviceWorker.controller);
     assert.equal(await page.title(), "AutoCut — Your footage. Your direction.");
@@ -305,7 +307,7 @@ try {
           command,
         );
       }
-      return "All 11 documented commands produced the expected edit-plan entries without interpreter errors.";
+      return `All ${EXAMPLES.length} documented commands produced the expected edit-plan entries without interpreter errors.`;
     },
   );
   await check(
@@ -413,7 +415,10 @@ try {
       const event = page.waitForEvent("download");
       await page.locator("#download-button").tap();
       const download = await event;
-      assert.equal(download.suggestedFilename(), "stage1-source-autocut.mp4");
+      assert.match(
+        download.suggestedFilename(),
+        /^stage1-source-autocut-\d+p\d{2}s-\d{8}-\d{6}-\d{3}\.mp4$/,
+      );
       await download.saveAs(".arena/stage1-downloaded.mp4");
       assert.equal(await download.failure(), null);
       downloaded = await readFile(".arena/stage1-downloaded.mp4");
@@ -491,7 +496,9 @@ try {
       await context.setOffline(true);
       await page.reload();
       await page.waitForFunction(
-        () => document.querySelector("#command-list").children.length === 11,
+        (expected) =>
+          document.querySelector("#command-list").children.length === expected,
+        EXAMPLES.length,
       );
       await page
         .locator("#video-input")
@@ -522,7 +529,9 @@ try {
     const rootPage = await context.newPage();
     await rootPage.goto(new URL("/", base).href);
     await rootPage.waitForFunction(
-      () => document.querySelector("#command-list").children.length === 11,
+      (expected) =>
+        document.querySelector("#command-list").children.length === expected,
+      EXAMPLES.length,
     );
     await rootPage.close();
     return "Shell, modules, worker, WASM, manifest and icons load at /AutoCut/ without 404s or cross-origin calls; cached paths stay under the project scope. Domain-root load also succeeds. Live GitHub Pages deployment not tested.";
@@ -546,13 +555,11 @@ try {
           .setInputFiles({ name, mimeType, buffer });
         assert.match(await page.locator("#app-notice").textContent(), expected);
       }
-      await page
-        .locator("#video-input")
-        .setInputFiles({
-          name: "broken.mp4",
-          mimeType: "video/mp4",
-          buffer: Buffer.from("not a playable MP4"),
-        });
+      await page.locator("#video-input").setInputFiles({
+        name: "broken.mp4",
+        mimeType: "video/mp4",
+        buffer: Buffer.from("not a playable MP4"),
+      });
       await page.locator("#instructions").fill("Mute the audio");
       await page.locator("#process-button").tap();
       await page.waitForFunction(
@@ -637,7 +644,10 @@ try {
         await fresh.setOffline(true);
         await tab.reload();
         await tab.waitForFunction(
-          () => document.querySelector("#command-list").children.length === 11,
+          (expected) =>
+            document.querySelector("#command-list").children.length ===
+            expected,
+          EXAMPLES.length,
         );
         await tab
           .locator("#video-input")

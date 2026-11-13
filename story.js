@@ -14,7 +14,12 @@ import {
   moveScene,
   updateScene,
   removeAsset,
+  arrangeScenes,
+  setProjectFormat,
+  validateProject,
+  FORMATS,
 } from "./story-model.js";
+import { projectStore, storySnapshot } from "./project-store.js";
 import { readAsset } from "./story-media.js";
 import {
   preparePreviewVideo,
@@ -22,6 +27,11 @@ import {
   waitForPreview,
 } from "./story-preview.js";
 import { exportStory } from "./story-export.js";
+import {
+  exportDiagnostics,
+  keepScreenAwake,
+  exportFileName,
+} from "./media-engine.js";
 
 const $ = (id) => document.getElementById(id);
 const project = createProject();
@@ -32,6 +42,9 @@ const byteLimit =
 const state = {
   mode: "quick",
   importing: false,
+  storing: false,
+  importAbort: null,
+  restoreAbort: null,
   exporting: false,
   playing: false,
   time: 0,
@@ -48,7 +61,7 @@ const state = {
 const video = $("story-video");
 const image = $("story-image");
 const seconds = (frames) => (frames / FPS).toFixed(2);
-const busy = () => state.importing || state.exporting;
+const busy = () => state.importing || state.exporting || state.storing;
 function message(text, error = false) {
   $("story-message").textContent = text;
   $("story-message").hidden = !text;
@@ -82,6 +95,7 @@ function invalidateOutput() {
   state.outputURL = null;
   $("story-result").hidden = true;
   $("story-download").removeAttribute("href");
+  $("story-download").removeAttribute("download");
 }
 function modeButtons() {
   const quickBusy = !$("progress-region").hidden;
@@ -304,6 +318,26 @@ function render() {
   $("story-play").disabled = busy() || !project.scenes.length;
   $("story-scrub").disabled = busy() || !project.scenes.length;
   $("story-export").disabled = busy() || !project.scenes.length;
+  for (const id of [
+    "story-save",
+    "story-load",
+    "story-forget",
+    "story-format",
+    "story-arrange",
+  ])
+    $(id).disabled = busy();
+  $("story-arrange").disabled = busy() || project.scenes.length < 2;
+  $("story-import-cancel").hidden = !state.importing && !state.restoreAbort;
+  $("story-import-cancel").textContent = state.restoreAbort
+    ? "Cancel restore"
+    : "Cancel import";
+  $("story-format").value = project.format;
+  $("story-fit-label").textContent = `${project.format} · FIT, NOT CROP`;
+  document.querySelector(".story-stage").style.aspectRatio =
+    project.format.replace(":", "/");
+  const geometry = FORMATS[project.format];
+  $("story-output-size").textContent =
+    `${geometry.width} × ${geometry.height} · ${project.format}`;
   $("story-export-summary").textContent =
     `Exports all ${project.scenes.length} scene${project.scenes.length === 1 ? "" : "s"} · ${seconds(totalFrames(project))}s total, not just the selected scene.`;
   for (const node of $("story-timing").querySelectorAll("input,button"))
@@ -313,6 +347,8 @@ function mutate(action) {
   if (busy()) return;
   try {
     action();
+    $("story-project-status").textContent =
+      "Current edits are not autosaved. Save project locally before closing.";
     pausePreview();
     invalidateOutput();
     message("");
@@ -323,6 +359,99 @@ function mutate(action) {
     message(error.message, true);
   }
 }
+$("story-format").addEventListener("change", (event) =>
+  mutate(() => setProjectFormat(project, event.target.value)),
+);
+$("story-arrange").addEventListener("click", () =>
+  mutate(() => arrangeScenes(project)),
+);
+$("story-import-cancel").addEventListener("click", () => {
+  state.importAbort?.abort();
+  state.restoreAbort?.abort();
+});
+async function storyProject(action) {
+  if (busy() || !$("progress-region").hidden) return;
+  pausePreview();
+  state.storing = true;
+  if (action === "load") state.restoreAbort = new AbortController();
+  render();
+  const created = [];
+  try {
+    const saved = await projectStore(
+      action,
+      "story",
+      action === "save" ? storySnapshot(project) : undefined,
+    );
+    if (action === "load") {
+      const signal = state.restoreAbort.signal;
+      signal.throwIfAborted();
+      if (!saved)
+        throw new Error(
+          "No Story project has been saved on this browser origin yet.",
+        );
+      if (
+        saved.version !== 1 ||
+        !Array.isArray(saved.assets) ||
+        !Array.isArray(saved.scenes) ||
+        saved.assets.length > LIMITS.assets ||
+        saved.scenes.length > LIMITS.scenes ||
+        !Object.hasOwn(FORMATS, saved.format)
+      )
+        throw new Error(
+          "The saved Story project is invalid. Current work was not replaced.",
+        );
+      const restored = createProject();
+      setProjectFormat(restored, saved.format);
+      for (const entry of saved.assets) {
+        if (!(entry.file instanceof Blob) || typeof entry.name !== "string")
+          throw new Error(
+            "A saved source is missing. Current work was not replaced.",
+          );
+        const asset = await readAsset(
+          new File([entry.file], entry.name, { type: entry.file.type }),
+          { signal },
+        );
+        created.push(asset.url);
+        const initial = importAsset(restored, asset, byteLimit);
+        removeScene(restored, initial.id);
+      }
+      for (const entry of saved.scenes) {
+        if (!Number.isInteger(entry.asset) || !restored.assets[entry.asset])
+          throw new Error("A saved scene has no source.");
+        addScene(restored, restored.assets[entry.asset].id, entry);
+      }
+      validateProject(restored, byteLimit);
+      signal.throwIfAborted();
+      restored.selectedId =
+        restored.scenes[saved.selected]?.id || restored.scenes[0]?.id || null;
+      invalidateOutput();
+      for (const asset of project.assets) URL.revokeObjectURL(asset.url);
+      Object.assign(project, restored);
+      created.length = 0;
+      state.time = project.selectedId
+        ? sceneStart(project, project.selectedId)
+        : 0;
+    }
+    $("story-project-status").textContent =
+      action === "delete"
+        ? "Saved Story snapshot removed. Current work and original files are unchanged."
+        : `${action === "load" ? "Restored" : "Saved"} Story project locally. Later changes require Save again; exports are not saved.`;
+  } catch (error) {
+    $("story-project-status").textContent =
+      error.name === "AbortError"
+        ? "Restore cancelled. Current project was not replaced."
+        : error.message || "Local project storage failed.";
+  } finally {
+    for (const url of created) URL.revokeObjectURL(url);
+    state.storing = false;
+    state.restoreAbort = null;
+    render();
+    if (action === "load") seek(state.time);
+  }
+}
+$("story-save").addEventListener("click", () => storyProject("save"));
+$("story-load").addEventListener("click", () => storyProject("load"));
+$("story-forget").addEventListener("click", () => storyProject("delete"));
 $("story-timing").addEventListener("submit", (event) => {
   event.preventDefault();
   const scene = project.scenes.find((item) => item.id === project.selectedId);
@@ -349,11 +478,13 @@ $("story-input").addEventListener("change", async (event) => {
   if (busy() || !files.length) return;
   pausePreview();
   state.importing = true;
+  state.importAbort = new AbortController();
   render();
   const failures = [];
   let imported = 0;
   try {
     for (const file of files) {
+      if (state.importAbort.signal.aborted) break;
       let asset;
       try {
         if (project.assets.length >= LIMITS.assets)
@@ -368,20 +499,26 @@ $("story-input").addEventListener("change", async (event) => {
             `Project exceeds the ${byteLimit / 1024 / 1024} MiB file limit.`,
           );
         message(`Reading ${file.name}…`);
-        asset = await readAsset(file);
+        asset = await readAsset(file, { signal: state.importAbort.signal });
         importAsset(project, asset, byteLimit);
         imported++;
         invalidateOutput();
       } catch (error) {
         if (asset?.url) URL.revokeObjectURL(asset.url);
+        if (error.name === "AbortError") break;
         failures.push(`${file.name}: ${error.message}`);
       }
     }
   } finally {
+    const cancelled = state.importAbort.signal.aborted;
+    state.importAbort = null;
     state.importing = false;
+    if (imported)
+      $("story-project-status").textContent =
+        "Current edits are not autosaved. Save project locally before closing.";
     render();
     message(
-      `${imported ? `Imported ${imported} asset${imported === 1 ? "" : "s"} and added ${imported} scene${imported === 1 ? "" : "s"}.` : "No files imported."}${failures.length ? "\n" + failures.join("\n") : ""}`,
+      `${cancelled ? "Import cancelled. " : ""}${imported ? `Imported ${imported} asset${imported === 1 ? "" : "s"} and added ${imported} scene${imported === 1 ? "" : "s"}.` : "No files imported."}${failures.length ? "\n" + failures.join("\n") : ""}`,
       failures.length > 0,
     );
     if (imported) seek(sceneStart(project, project.selectedId));
@@ -579,13 +716,20 @@ $("story-export").addEventListener("click", async () => {
   $("story-progress-region").hidden = false;
   $("story-progress").max = project.scenes.length + 1;
   message("Exporting locally. Keep Chrome open and your phone unlocked.");
+  exportDiagnostics("Story", "Starting local export", {
+    expectedDuration: totalFrames(project) / FPS,
+  });
   try {
-    try {
-      if ("wakeLock" in navigator)
-        state.wakeLock = await navigator.wakeLock.request("screen");
-    } catch {
-      /* Optional. */
-    }
+    const controller = state.abort;
+    keepScreenAwake(
+      () =>
+        state.abort === controller &&
+        !controller.signal.aborted &&
+        state.exporting,
+      (lock) => {
+        state.wakeLock = lock;
+      },
+    );
     const blob = await exportStory(project, {
       signal: state.abort.signal,
       onStatus: (status) => {
@@ -600,12 +744,24 @@ $("story-export").addEventListener("click", async () => {
     $("story-result-video").src = state.outputURL;
     $("story-result").hidden = false;
     $("story-download").href = state.outputURL;
+    $("story-download").download = exportFileName(
+      "autocut-story",
+      totalFrames(project) / FPS,
+      "mp4",
+    );
     $("story-result-info").textContent =
-      `${seconds(totalFrames(project))}s · ${(blob.size / 1024 / 1024).toFixed(2)} MiB · Save before leaving.`;
+      `${seconds(totalFrames(project))}s · ${(blob.size / 1024 / 1024).toFixed(2)} MiB · ${$("story-download").download} · Save before leaving.`;
     message(
       "Your story is ready. Play the exported preview, then download the MP4.",
     );
   } catch (error) {
+    exportDiagnostics(
+      "Story",
+      state.abort.signal.aborted
+        ? "Cancelled; worker released"
+        : "Export failed",
+      { expectedDuration: totalFrames(project) / FPS, error },
+    );
     message(
       state.abort.signal.aborted
         ? "Export cancelled. Your assets and scenes are unchanged."
@@ -614,7 +770,7 @@ $("story-export").addEventListener("click", async () => {
     );
   } finally {
     if (state.wakeLock) {
-      await state.wakeLock.release().catch(() => {});
+      state.wakeLock.release().catch(() => {});
       state.wakeLock = null;
     }
     state.exporting = false;
@@ -630,7 +786,7 @@ $("story-download").addEventListener("click", (event) => {
   if (!state.outputURL) event.preventDefault();
   else
     message(
-      "Download started. Find autocut-story.mp4 in Chrome → ⋮ → Downloads.",
+      `Download started: ${$("story-download").download}. Open this NEW file in Chrome → ⋮ → Downloads; older exports may still be there.`,
     );
 });
 window.addEventListener("beforeunload", (event) => {
