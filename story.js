@@ -1,3 +1,5 @@
+import { mountCreator } from "./creator-ui.js";
+import { restoreCreator, validateCreator } from "./creator-model.js";
 import {
   FPS,
   LIMITS,
@@ -35,6 +37,7 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const project = createProject();
+let creatorUI;
 const byteLimit =
   navigator.deviceMemory && navigator.deviceMemory <= 2
     ? LIMITS.bytes / 2
@@ -111,6 +114,7 @@ function setMode(mode) {
   pausePreview();
   $("preview-video").pause();
   $("story-result-video").pause();
+  creatorUI?.pauseAudio();
   state.mode = mode;
   $("quick-editor").hidden = mode !== "quick";
   $("story-editor").hidden = mode !== "story";
@@ -342,6 +346,7 @@ function render() {
     `Exports all ${project.scenes.length} scene${project.scenes.length === 1 ? "" : "s"} · ${seconds(totalFrames(project))}s total, not just the selected scene.`;
   for (const node of $("story-timing").querySelectorAll("input,button"))
     node.disabled = busy();
+  creatorUI?.refresh();
 }
 function mutate(action) {
   if (busy()) return;
@@ -377,6 +382,8 @@ async function storyProject(action) {
   render();
   const created = [];
   try {
+    if (action === "save")
+      validateCreator(project.creator, project.assets, byteLimit);
     const saved = await projectStore(
       action,
       "story",
@@ -421,6 +428,11 @@ async function storyProject(action) {
         addScene(restored, restored.assets[entry.asset].id, entry);
       }
       validateProject(restored, byteLimit);
+      restored.creator = restoreCreator(
+        saved.creator,
+        restored.assets,
+        byteLimit,
+      );
       signal.throwIfAborted();
       restored.selectedId =
         restored.scenes[saved.selected]?.id || restored.scenes[0]?.id || null;
@@ -492,7 +504,12 @@ $("story-input").addEventListener("change", async (event) => {
             "Asset limit reached (8). Remove unused assets first.",
           );
         if (
-          project.assets.reduce((sum, item) => sum + item.size, 0) + file.size >
+          project.assets.reduce((sum, item) => sum + item.size, 0) +
+            file.size +
+            (project.creator?.audio.reduce(
+              (sum, item) => sum + item.file.size,
+              0,
+            ) || 0) >
           byteLimit
         )
           throw new Error(
@@ -500,7 +517,15 @@ $("story-input").addEventListener("change", async (event) => {
           );
         message(`Reading ${file.name}…`);
         asset = await readAsset(file, { signal: state.importAbort.signal });
-        importAsset(project, asset, byteLimit);
+        importAsset(
+          project,
+          asset,
+          byteLimit -
+            (project.creator?.audio.reduce(
+              (sum, item) => sum + item.file.size,
+              0,
+            ) || 0),
+        );
         imported++;
         invalidateOutput();
       } catch (error) {
@@ -555,6 +580,7 @@ function pausePreview() {
 }
 async function seek(time, play = false) {
   if (busy()) return;
+  creatorUI?.pauseAudio();
   const location = locateTime(project, time);
   const token = ++state.previewToken;
   state.previewAbort?.abort();
@@ -695,7 +721,10 @@ $("story-timeline").addEventListener("click", (event) => {
 $("story-preview-mute").addEventListener("change", (event) => {
   video.muted = event.target.checked;
 });
-$("story-result-video").addEventListener("play", pausePreview);
+$("story-result-video").addEventListener("play", () => {
+  pausePreview();
+  creatorUI?.pauseAudio();
+});
 let resizeFrame;
 window.addEventListener("resize", () => {
   cancelAnimationFrame(resizeFrame);
@@ -794,5 +823,31 @@ window.addEventListener("beforeunload", (event) => {
     event.preventDefault();
     event.returnValue = "";
   }
+});
+creatorUI = mountCreator({
+  project,
+  byteLimit,
+  isBusy: busy,
+  onDirty: () => {
+    $("story-project-status").textContent =
+      "Current edits and storyboard are not autosaved. Save project locally before closing.";
+  },
+  onAudition: () => {
+    pausePreview();
+    $("story-result-video").pause();
+    $("preview-video").pause();
+  },
+  onAudioBusy: (controller) => {
+    state.importing = !!controller;
+    state.importAbort = controller;
+    render();
+  },
+  onApply: (next) =>
+    mutate(() => {
+      project.scenes = next.scenes;
+      project.format = next.format;
+      project.selectedId = next.selectedId;
+      project.revision++;
+    }),
 });
 render();

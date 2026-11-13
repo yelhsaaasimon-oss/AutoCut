@@ -307,7 +307,7 @@ try {
     "Actual encoded sources reproduced Quick Edit failures; inspect .arena/quick-pipeline-reproduced.json",
   );
 
-  assert.equal(successfulDiagnostic.build, "1.2.0-rc.2");
+  assert.equal(successfulDiagnostic.build, "1.3.0-rc.1");
   assert.equal(successfulDiagnostic.pipeline.stage, "ready");
   assert.equal(successfulDiagnostic.pipeline.encodeExitCode, 0);
   assert.deepEqual(

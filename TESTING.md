@@ -2,7 +2,15 @@
 
 Tested on **2026-11-12**. This is a working static-browser application, not a simulated processing flow.
 
-## Current focused Quick Edit investigation · v1.2.0-rc.2
+## Current Creator Phase 1 · v1.3.0-rc.1
+
+See [CREATOR-WORKFLOW.md](./CREATOR-WORKFLOW.md) for the architecture, implemented/future boundaries and measured media evidence. **80 pure tests PASS** (17 new Creator regressions), **17 Stage 1 groups**, existing browser integration, **15 Story groups**, Story preview regressions, **9 Story trim checks**, **12 stabilization groups**, **13 Quick pipeline groups**, and **9 Creator browser groups**, all PASS. The Creator suite also passes at root in addition to `/AutoCut/`.
+
+The new browser workflow drafts/reviews/applies a real storyboard, blocks missing/invalid footage, imports/auditions/cancels supplied audio references, remaps saved source IDs, restores offline and exports real independently decoded 9:16 and trimmed mixed-media 16:9 MP4s. Script/caption text is safely displayed, not executed. Planning-only audio is verified absent from MP4; original clip audio is verified present in the right slot. Physical Android remains **NOT TESTED here**, and the previously reported phone-only Quick Edit problem is **not certified fixed**. No paid service, model, backend, generated media or new dependency was added.
+
+Run `npm run test:creator` for the added browser workflow or `npm run test:all` with the included static server running for all suites. Faults include a deliberately stalled audio metadata setter to verify cancellation; success-path media encoding is real. The following sections retain earlier candidate evidence; current counts are above.
+
+## Previous focused Quick Edit investigation · v1.2.0-rc.2
 
 See [QA-QUICK-PIPELINE.md](./QA-QUICK-PIPELINE.md). **Confirmed real-media regressions against the original `7666f32` application:** unequal video/audio durations caused mute-MP4 and short-audio-MP3 integrity rejection, plus an audio tail extended an untrimmed MP4 beyond its video. The corrected version uses the first video track's timeline and bounded audio padding/trimming; it retains full output verification. Rotation, VFR, actual 1080p→1280×720 encoding, native playback, downloaded-byte equality, corrupt input, missing core, bad encoder and bounded non-answering startup/encoding checks pass. Stage-level diagnostics are now available on the phone. **The actual physical-phone failure remains unconfirmed without its diagnostics/source characteristics.** No mobile OOM or Android hardware certification is claimed.
 
@@ -30,7 +38,7 @@ The user reported an Android trim-preview hang after the original acceptance run
 
 ## Stage 2 — Increment A
 
-See [QA-INCREMENT-A.md](./QA-INCREMENT-A.md) for the full feature-by-feature PASS / FAIL / NOT TESTED report. `npm test` now runs **63 tests**: 26 Quick/parser/deployment tests, 17 Story model/export tests, and 20 shared stabilization regressions. `npm run test:story` passes **15 real-browser acceptance groups**, including mixed video/JPG/PNG import, scene edits, sequential native preview, decoded MP4 scene colors, sampled audio placement, downloads, touch viewports, cancellation/retry, empty-state recovery and cold offline mixed export. The Stage 1 suites below have been rerun and still pass. Physical Android hardware and a new production deployment remain NOT TESTED.
+See [QA-INCREMENT-A.md](./QA-INCREMENT-A.md) for the full feature-by-feature PASS / FAIL / NOT TESTED report. `npm test` now runs **80 tests**: 26 Quick/parser/deployment tests, 17 Story model/export tests, 20 shared stabilization regressions and 17 Creator planning/persistence tests. `npm run test:story` passes **15 real-browser acceptance groups**, including mixed video/JPG/PNG import, scene edits, sequential native preview, decoded MP4 scene colors, sampled audio placement, downloads, touch viewports, cancellation/retry, empty-state recovery and cold offline mixed export. The Stage 1 suites below have been rerun and still pass. Physical Android hardware and a new production deployment remain NOT TESTED.
 
 ## Stage 1 acceptance audit
 
@@ -38,7 +46,7 @@ See [QA-STAGE1.md](./QA-STAGE1.md) for an explicit PASS / FAIL / NOT TESTED repo
 
 ## Automated results
 
-- `npm test`: **63 passing tests**. The 26 Quick Edit cases cover requested example instructions, composed commands, decimals, unknown/conflicting instructions, speed/volume/trim bounds, slow-motion input duration, mute, audio-only restrictions, chained tempo filters, bounded fades, conversion, required files and manifest/icon dimensions. The 17 Increment A cases cover project/scene ordering, selection, removal/reuse, frame timing, limits, normalized export commands, exact 2–7 source mapping and final-file duration/frame-count verification. The 20 shared regressions cover bounded workers, late failures, error classification, output gates, delayed audio, aspect ratios, restored ranges, filenames, optional wake-lock lifecycle, video-track duration selection and bounded audio padding.
+- `npm test`: **80 passing tests**. The 26 Quick Edit cases cover requested example instructions, composed commands, decimals, unknown/conflicting instructions, speed/volume/trim bounds, slow-motion input duration, mute, audio-only restrictions, chained tempo filters, bounded fades, conversion, required files and manifest/icon dimensions. The 17 Increment A cases cover project/scene ordering, selection, removal/reuse, frame timing, limits, normalized export commands, exact 2–7 source mapping and final-file duration/frame-count verification. The 20 shared regressions cover bounded workers, late failures, error classification, output gates, delayed audio, aspect ratios, restored ranges, filenames, optional wake-lock lifecycle, video-track duration selection and bounded audio padding. The 17 Creator cases cover bounded prompt parsing, exact timing, safe/missing filename matches, staged application, audio limits and source-ID remapping/legacy saved projects.
 - `npm run test:browser`: **passed** using Chromium 153 with Playwright, Android Chrome user agent, touch/mobile emulation, and 390px/360px viewports. A 1440px screenshot was also inspected. The site was served under `/AutoCut/`, not just the domain root.
 - `npm audit`: **0 reported vulnerabilities**, including development dependencies at test time. This is not a security guarantee for all upstream compiled codecs.
 

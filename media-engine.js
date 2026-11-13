@@ -212,7 +212,7 @@ export function exportDiagnostics(
   if (!node) return;
   node.textContent = JSON.stringify(
     {
-      build: "1.2.0-rc.2",
+      build: "1.3.0-rc.1",
       workspace,
       status,
       browser: navigator.userAgent,

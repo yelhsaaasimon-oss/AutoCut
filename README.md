@@ -2,7 +2,17 @@
 
 **Your footage. Your direction.** A free, mobile-first video editor that turns supported plain-word instructions into real FFmpeg edits. Videos stay on the user's device. No account, paid API, backend, build step, or subscription.
 
-## Stabilization candidate · v1.2.0-rc.2
+## Prompt-guided Creator · v1.3.0-rc.1
+
+**Phase 1: Prompt → Storyboard → Review → Apply cuts to Story → local MP4.** In Story Mode, import your images/videos, describe the target duration/format/pacing, optionally provide one script-note line per scene, then draft and review the storyboard. Reassign missing/mismatched footage, adjust source ranges/durations and order, and explicitly Apply to replace the Story scenes. Use the existing Story preview/edit/export controls to finish.
+
+This is **local rules/templates and filename matching, not a language model or visual understanding**. It never generates footage, images, facts or realistic voices. Title/script/caption drafts and effect/audio instructions are editable planning material. **Captions/text, zoom/pan, non-cut transitions and extra audio mixing are not rendered in this phase**; the interface and Apply acknowledgement say so. Quick Edit retains its existing real speed/volume/fade/crop controls.
+
+You can import/organize/audition your own narration, music and SFX as **planning references**, with roles and suggested placement. They are saved with the project but **not mixed into MP4 yet**. Original video audio continues to work. Missing sources are never invented; an unresolved scene blocks Apply.
+
+See [CREATOR-WORKFLOW.md](./CREATOR-WORKFLOW.md) for architecture, implementation plan, limits, completed versus future features, actual-media tests and Android checklist. This build is for branch review/phone testing only—**do not merge or deploy yet**. Update using [UPDATE-TERMUX.md](./UPDATE-TERMUX.md). Previous physical Android Quick Edit verification is still pending.
+
+## Previous stabilization candidate · v1.2.0-rc.2
 
 **For final phone testing on `arena/4b30bfe8-autocut`. Do not merge or deploy yet.** The latest [focused Quick Edit investigation](./QA-QUICK-PIPELINE.md) reproduces and fixes unequal video/audio-duration export failures. It does **not** establish that these are the cause of the user's still-unverified physical-phone failure. The coordinated audit, complete findings, actual export measurements and remaining limitations are in [AUDIT-STABILIZATION.md](./AUDIT-STABILIZATION.md). Update your existing local copy using [UPDATE-TERMUX.md](./UPDATE-TERMUX.md).
 
@@ -142,7 +152,11 @@ story-model.js             Pure frame-based assets/scenes/timing model
 story-media.js             Local media validation, thumbnails, reduced-size images
 story-export.js            Sequential scene normalization, audio and MP4 joining
 media-engine.js            Shared bounded engine, output verification and diagnostics
-project-store.js           Manual local source/decision snapshots in IndexedDB
+project-store.js           Manual local source/decision/Creator snapshots in IndexedDB
+creator-model.js           Local template storyboard, matching and staged Story conversion
+creator-ui.js              Draft review, missing-asset gates and Story integration
+creator-audio.js           Abortable native audio-reference import, not export mixing
+CREATOR-WORKFLOW.md        Current Phase 1 architecture, results and Android checklist
 AUDIT-STABILIZATION.md     rc.1 coordinated audit and feature boundaries
 QA-QUICK-PIPELINE.md       rc.2 focused Quick Edit reproduction and test evidence
 UPDATE-TERMUX.md           Safe update and final Android test checklist
@@ -159,4 +173,4 @@ TESTING.md                 Verification report and device-testing limits
 
 ### Optional maintainer commands (not needed on your phone)
 
-There is no build pipeline. `npm install`, `npm test`, `npm run serve`, and `npm run test:browser` are only for maintainers running automated checks. Test fixture videos, screenshots, and `node_modules` are ignored by Git. With `npm run serve` running, `npm run test:all` runs all suites sequentially, including the focused real-media `test:quick-pipeline` investigation. See [TESTING.md](./TESTING.md) for test scope and environment details. Increment the service-worker cache version whenever changing a released app or engine asset.
+There is no build pipeline. `npm install`, `npm test`, `npm run serve`, and `npm run test:browser` are only for maintainers running automated checks. Test fixture videos, screenshots, and `node_modules` are ignored by Git. With `npm run serve` running, `npm run test:all` runs all suites sequentially, including `test:quick-pipeline` and the new real-media `test:creator` workflow checks. See [TESTING.md](./TESTING.md) for test scope and environment details. Increment the service-worker cache version whenever changing a released app or engine asset.

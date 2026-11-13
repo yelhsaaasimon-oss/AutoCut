@@ -1,3 +1,4 @@
+import { creatorSnapshot } from "./creator-model.js";
 // Explicit, local-only snapshots. Original Blob/File data stays in IndexedDB;
 // object URLs and exported MP4s are never persisted. One slot per workspace.
 const DB_NAME = `autocut-projects-${new URL("./", import.meta.url).pathname}`;
@@ -81,6 +82,7 @@ export async function projectStore(action, workspace, value) {
 
 export function storySnapshot(project) {
   return {
+    creator: creatorSnapshot(project.creator, project.assets),
     format: project.format,
     assets: project.assets.map((asset) => ({
       name: asset.name,

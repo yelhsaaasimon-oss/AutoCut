@@ -131,12 +131,12 @@
           </button>
         </div>
         <p id="app-build" class="build-info">
-          Build v1.2.0-rc.2 · browser-local · save projects before closing tabs
+          Build v1.3.0-rc.1 · browser-local · save projects before closing tabs
         </p>
         <details class="export-diagnostics">
           <summary>Export diagnostics · on this device only</summary>
           <pre id="export-diagnostics-text" tabindex="0">
-No export attempted in this session. Build v1.2.0-rc.2. This panel records capabilities, local engine paths and the last export result; it sends nothing.</pre
+No export attempted in this session. Build v1.3.0-rc.1. This panel records capabilities, local engine paths and the last export result; it sends nothing.</pre
           >
         </details>
         <div id="quick-editor">
@@ -401,7 +401,7 @@ No export attempted in this session. Build v1.2.0-rc.2. This panel records capab
           <footer class="main-footer">
             <span>A small tool for your next big idea.</span
             ><span
-              >AUTOCUT <span class="footer-version">/ v1.2.0-rc.2</span></span
+              >AUTOCUT <span class="footer-version">/ v1.3.0-rc.1</span></span
             >
           </footer>
           <div class="app-notice" id="app-notice" role="status" hidden></div>
@@ -445,6 +445,104 @@ No export attempted in this session. Build v1.2.0-rc.2. This panel records capab
             aria-live="polite"
             hidden
           ></div>
+          <section
+            id="creator-workspace"
+            class="panel creator-workspace"
+            aria-labelledby="creator-heading"
+          >
+            <h2 id="creator-heading">
+              Prompt → storyboard → your Story project
+            </h2>
+            <p class="story-small">
+              Local rules and templates, not an AI language model. No generated
+              footage, factual research or voices. Import visuals in Your source
+              material below, or plan first and assign missing footage later.
+              Matching uses filenames, not image understanding.
+            </p>
+            <label for="creator-prompt"
+              >Describe the video (one total duration, optional 9:16 / 16:9 and
+              scene count)</label
+            >
+            <textarea
+              id="creator-prompt"
+              maxlength="2000"
+              placeholder="Create a 60-second funny historical video, vertical, with fast cuts, captions, zooms and background music."
+            ></textarea>
+            <label for="creator-notes"
+              >Your verified script / scene notes — optional, one scene per line
+              (up to 12)</label
+            >
+            <textarea
+              id="creator-notes"
+              maxlength="6000"
+              placeholder="Opening hook using facts I provide&#10;The main event&#10;Closing thought"
+            ></textarea>
+            <p class="story-small">
+              Use numeric durations (60 seconds / 1 minute). Defaults when
+              omitted: 30 seconds and 16:9. Fast cuts suggest shorter scenes
+              within the 12-scene cap. Unsupported rendering requests remain
+              planning notes; review the result.
+            </p>
+            <button id="creator-generate" type="button">
+              Draft storyboard locally
+            </button>
+            <p id="creator-status" role="status" class="story-small">
+              Nothing is uploaded. Drafting does not change your current Story
+              scenes.
+            </p>
+            <details>
+              <summary>
+                Organize supplied audio (planning references only)
+              </summary>
+              <p class="story-small">
+                Recorded narration, music and SFX can be imported, auditioned,
+                assigned a role and given a suggested start. These references
+                are saved locally but NOT mixed into the exported MP4 in this
+                phase. Existing video-source audio still exports normally. Up to
+                4 audio files, 10 MiB each / 20 MiB combined, sharing the
+                project file budget.
+              </p>
+              <label for="creator-audio-import"
+                >Import your audio references</label
+              >
+              <input
+                id="creator-audio-import"
+                type="file"
+                accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.webm"
+                multiple
+              />
+              <div id="creator-audio-list"></div>
+            </details>
+            <div id="creator-review" hidden>
+              <label for="creator-title"
+                >Video title draft (not a rendered title overlay)</label
+              >
+              <input id="creator-title" maxlength="160" />
+              <label for="creator-format">Apply aspect ratio</label>
+              <select id="creator-format">
+                <option value="16:9">Horizontal 16:9</option>
+                <option value="9:16">Vertical 9:16</option>
+              </select>
+              <div id="creator-scenes"></div>
+              <label class="creator-ack"
+                ><input id="creator-ack" type="checkbox" /> Replace the current
+                Story scenes with these cuts. I understand captions/text,
+                zoom/pan, transitions beyond hard cuts, speed/volume suggestions
+                and extra audio tracks are planning notes, NOT rendered effects
+                in this phase.</label
+              >
+              <button id="creator-apply" type="button" disabled>
+                Apply reviewed cuts to Story (replace scenes)
+              </button>
+              <p class="story-small">
+                Drafts and Story edits are separate: later manual Story
+                trims/order changes do not rewrite this draft. Applying it again
+                replaces scenes. Save project locally to keep your draft, visual
+                sources and audio references.
+              </p>
+            </div>
+            <p id="creator-summary" role="status" class="story-small"></p>
+          </section>
           <div class="story-grid">
             <section
               class="panel story-library"

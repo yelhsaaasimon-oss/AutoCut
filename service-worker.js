@@ -1,5 +1,5 @@
 // Bump this version whenever any shipped app or engine file changes.
-const VERSION = "autocut-v1.2.0-rc.2";
+const VERSION = "autocut-v1.3.0-rc.1";
 const ROOT = new URL("./", self.location.href);
 const CACHE = `${VERSION}-${ROOT.pathname}`;
 // Core bytes are unchanged; do not discard the 31 MiB engine on shell updates.
@@ -14,6 +14,9 @@ const SHELL = [
   "./project-store.js",
   "./story.css",
   "./story.js",
+  "./creator-model.js",
+  "./creator-ui.js",
+  "./creator-audio.js",
   "./story-model.js",
   "./story-media.js",
   "./story-preview.js",

@@ -1,11 +1,11 @@
 {
   "name": "autocut",
-  "version": "1.2.0-rc.2",
+  "version": "1.3.0-rc.1",
   "private": true,
   "type": "module",
   "description": "Free, browser-only, instruction-driven video editor. No build step required.",
   "scripts": {
-    "test": "node --test tests/editor.test.js tests/story-model.test.js tests/stabilization.test.js",
+    "test": "node --test tests/editor.test.js tests/story-model.test.js tests/stabilization.test.js tests/creator-model.test.js",
     "test:browser": "node tests/browser.test.js",
     "serve": "node scripts/serve.js",
     "test:stage1": "node tests/stage1.test.js",
@@ -13,8 +13,9 @@
     "test:story-preview": "node tests/story-preview.test.js",
     "test:story-trim": "node tests/story-trim.test.js",
     "test:stabilization": "node tests/stabilization-browser.test.js",
-    "test:all": "npm test && npm run test:stage1 && npm run test:browser && npm run test:story && npm run test:story-preview && npm run test:story-trim && npm run test:stabilization && npm run test:quick-pipeline",
-    "test:quick-pipeline": "node tests/quick-pipeline.test.js"
+    "test:all": "npm test && npm run test:stage1 && npm run test:browser && npm run test:story && npm run test:story-preview && npm run test:story-trim && npm run test:stabilization && npm run test:quick-pipeline && npm run test:creator",
+    "test:quick-pipeline": "node tests/quick-pipeline.test.js",
+    "test:creator": "node tests/creator-browser.test.js"
   },
   "devDependencies": {
     "@playwright/test": "1.65.0",

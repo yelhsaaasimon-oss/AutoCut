@@ -592,3 +592,76 @@
 #app-notice {
   overflow-wrap: anywhere;
 }
+
+/* Creator planning stays in the existing Story workspace. */
+.creator-workspace {
+  margin: 24px 0;
+  padding: 20px;
+  overflow-wrap: anywhere;
+}
+.creator-workspace label {
+  display: block;
+  margin: 14px 0 6px;
+  font-size: 12px;
+}
+.creator-workspace textarea,
+.creator-workspace input:not([type="checkbox"]),
+.creator-workspace select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 10px;
+  background: #111a12;
+  color: var(--text);
+  border: 1px solid #415435;
+  border-radius: 6px;
+  font: inherit;
+}
+.creator-workspace textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+.creator-workspace button,
+.creator-workspace summary {
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid #415435;
+  border-radius: 6px;
+  margin: 8px 5px 0 0;
+  color: var(--accent);
+}
+.creator-workspace button:disabled {
+  opacity: 0.45;
+}
+.creator-workspace fieldset {
+  min-width: 0;
+  border: 1px solid #415435;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 18px 0;
+}
+.creator-workspace legend {
+  padding: 0 8px;
+  font-weight: 600;
+}
+.creator-workspace audio {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 12px 0;
+}
+.creator-ack {
+  line-height: 1.8;
+}
+.creator-ack input {
+  width: 24px;
+  height: 24px;
+  vertical-align: middle;
+}
+.creator-workspace .error {
+  color: #ffb3a5;
+}
+#creator-scenes {
+  max-height: 650px;
+  overflow: auto;
+}
